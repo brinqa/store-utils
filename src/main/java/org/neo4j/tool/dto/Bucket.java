@@ -26,7 +26,7 @@ public class Bucket {
     public enum Size {
         SMALL,
         MEDIUM,
-        LARGE;
+        LARGE
     }
 
     Size size;

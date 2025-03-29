@@ -15,21 +15,18 @@
  */
 package org.neo4j.tool.index;
 
+import com.google.common.collect.Iterables;
 import com.google.gson.GsonBuilder;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.neo4j.driver.AccessMode;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
-import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.Transaction;
-import org.neo4j.driver.TransactionCallback;
-import org.neo4j.driver.TransactionContext;
+import org.neo4j.driver.TransactionWork;
 import org.neo4j.driver.Value;
-import org.neo4j.driver.summary.ResultSummary;
-import org.neo4j.internal.helpers.collection.Iterables;
 import org.neo4j.tool.dto.Bucket;
 import org.neo4j.tool.dto.ConstraintStatus;
 import org.neo4j.tool.dto.IndexBatch;
@@ -166,19 +163,19 @@ public class IndexManager {
         // query for all the indexes
         try (final Session session = driver.session()) {
             assert session != null;
-            ResultSummary resultSummary = session.executeWrite(tx -> tx.run(query).consume());
+            var resultSummary = session.readTransaction(tx -> tx.run(query).consume());
             if (log.isDebugEnabled()) {
                 log.debug(resultSummary.toString());
             }
         }
     }
 
-    <T> T readTransaction(TransactionCallback<T> work) {
+    <T> T readTransaction(TransactionWork<T> work) {
         // query for all the indexes
         final var cfg = SessionConfig.builder().withDefaultAccessMode(AccessMode.READ).build();
         try (final Session session = driver.session(cfg)) {
             assert session != null;
-            return session.executeRead(work);
+            return session.readTransaction(work);
         }
     }
 
@@ -188,7 +185,7 @@ public class IndexManager {
 
     String indexQuery(IndexData indexData) {
         final String name = indexData.getName();
-        final String label = Iterables.firstOrNull(indexData.getLabelsOrTypes());
+        final String label = Iterables.getFirst(indexData.getLabelsOrTypes(), null);
 
         // create an index
         final String IDX_FMT =
@@ -203,11 +200,11 @@ public class IndexManager {
 
     String constraintQuery(IndexData indexData) {
         final String name = indexData.getName();
-        final String label = Iterables.firstOrNull(indexData.getLabelsOrTypes());
+        final String label = Iterables.getFirst(indexData.getLabelsOrTypes(), null);
 
         // create constraint
         final String format = createConstraintFormat();
-        final String firstProp = Iterables.firstOrNull(indexData.getProperties());
+        final String firstProp = Iterables.getFirst(indexData.getProperties(), null);
         return String.format(format, name, label, firstProp);
     }
 
@@ -221,7 +218,7 @@ public class IndexManager {
         // query for all the indexes
         try (final Session session = driver.session()) {
             assert session != null;
-            return session.executeRead(tx -> toIndexState(tx, name));
+            return session.readTransaction(tx -> toIndexState(tx, name));
         }
     }
 
@@ -229,21 +226,21 @@ public class IndexManager {
         // query for all the indexes
         try (final Session session = driver.session()) {
             assert session != null;
-            return session.executeRead(tx -> toConstraintStatus(tx, name));
+            return session.readTransaction(tx -> toConstraintStatus(tx, name));
         }
     }
 
-    ConstraintStatus toConstraintStatus(TransactionContext tx, String name) {
+    ConstraintStatus toConstraintStatus(Transaction tx, String name) {
         final String FMT = "show constraints yield name WHERE name = \"%s\"";
         final var result = tx.run(String.format(FMT, name));
-        final var record = Iterables.firstOrNull(result.list());
+        final var record = Iterables.getFirst(result.list(), null);
         return ConstraintStatus.of(null != record);
     }
 
-    IndexStatus toIndexState(TransactionContext tx, String name) {
+    IndexStatus toIndexState(Transaction tx, String name) {
         final String FMT = "show indexes yield populationPercent,state,name WHERE name = \"%s\"";
         final var result = tx.run(String.format(FMT, name));
-        final var record = Iterables.firstOrNull(result.list());
+        final var record = result.single();
         if (null == record) {
             return IndexStatus.builder().state(State.FAILED).build();
         }
@@ -283,7 +280,7 @@ public class IndexManager {
     public List<IndexData> readDBIndexes() {
         try (Session session = driver.session()) {
             assert session != null;
-            return session.executeRead(
+            return session.readTransaction(
                     tx -> {
                         final var result = tx.run("show indexes;");
                         return result.list().stream()
@@ -327,8 +324,9 @@ public class IndexManager {
         final String FMT = "MATCH (n:`%s`) return count(n) as count";
         return this.readTransaction(
                 tx -> {
-                    final Result result = tx.run(String.format(FMT, labelName));
-                    return Optional.ofNullable(Iterables.firstOrNull(result.list()))
+                    final var query = String.format(FMT, labelName);
+                    final var result = tx.run(query);
+                    return Optional.ofNullable(Iterables.getFirst(result.list(), null))
                             .map(r -> r.get(0).asLong(0L))
                             .orElse(0L);
                 });
