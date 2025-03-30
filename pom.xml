@@ -11,8 +11,6 @@
 
     <properties>
         <revision>5.18.1.x-SNAPSHOT</revision>
-        <neo4j.driver.version>5.22.0</neo4j.driver.version>
-
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- plugin versions -->
         <assembly-plugin.version>3.4.2</assembly-plugin.version>
@@ -35,14 +33,14 @@
     </licenses>
     <dependencies>
         <dependency>
-            <groupId>com.github.ben-manes.caffeine</groupId>
-            <artifactId>caffeine</artifactId>
-            <version>3.1.8</version>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.17.0</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>33.2.1-jre</version>
+            <version>33.4.6-jre</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -59,7 +57,7 @@
         <dependency>
             <groupId>org.neo4j.driver</groupId>
             <artifactId>neo4j-java-driver</artifactId>
-            <version>${neo4j.driver.version}</version>
+            <version>5.28.4</version>
         </dependency>
         <dependency>
             <groupId>info.picocli</groupId>
@@ -75,27 +73,27 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
-            <version>2.17.0</version>
+            <version>2.18.3</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
-            <version>2.17.0</version>
+            <version>2.18.0</version>
         </dependency>
         <dependency>
             <groupId>io.vavr</groupId>
             <artifactId>vavr</artifactId>
-            <version>0.10.4</version>
+            <version>0.10.6</version>
         </dependency>
         <dependency>
             <groupId>io.reactivex.rxjava3</groupId>
             <artifactId>rxjava</artifactId>
-            <version>3.1.8</version>
+            <version>3.1.10</version>
         </dependency>
         <dependency>
             <groupId>org.neo4j</groupId>
             <artifactId>neo4j-cypher-dsl</artifactId>
-            <version>2024.0.0</version>
+            <version>2024.5.1</version>
         </dependency>
         <dependency>
             <groupId>com.esotericsoftware</groupId>
@@ -103,19 +101,20 @@
             <version>5.6.0</version>
         </dependency>
         <dependency>
-            <groupId>io.github.speedb-io</groupId>
-            <artifactId>speedbjni</artifactId>
-            <version>2.8.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.12</version>
-        </dependency>
-        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>2.0.12</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.27.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>neo4j</artifactId>
+            <version>1.20.0</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
     <build>
@@ -160,24 +159,20 @@
                 <configuration>
                     <programs>
                         <program>
-                            <name>copy</name>
-                            <mainClass>com.brinqa.tool.neo4j.DatabaseDumpCLI</mainClass>
-                        </program>
-                        <program>
                             <name>dump</name>
-                            <mainClass>org.neo4j.tool.DumpIndex</mainClass>
+                            <mainClass>com.brinqa.neo4j.tool.DumpIndex</mainClass>
                         </program>
                         <program>
                             <name>load</name>
-                            <mainClass>org.neo4j.tool.LoadIndex</mainClass>
+                            <mainClass>com.brinqa.neo4j.tool.LoadIndex</mainClass>
                         </program>
                         <program>
                             <name>drop</name>
-                            <mainClass>org.neo4j.tool.DropIndex</mainClass>
+                            <mainClass>com.brinqa.neo4j.tool.DropIndex</mainClass>
                         </program>
                         <program>
                             <name>reindex</name>
-                            <mainClass>org.neo4j.tool.RebuildIndex</mainClass>
+                            <mainClass>com.brinqa.neo4j.tool.RebuildIndex</mainClass>
                         </program>
                     </programs>
                     <repositoryLayout>flat</repositoryLayout>

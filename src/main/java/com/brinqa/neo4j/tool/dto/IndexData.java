@@ -1,5 +1,5 @@
 /*
- * Copyright 2002 Brinqa, Inc. All rights reserved.
+ * Copyright 2022 Brinqa, Inc. All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,24 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.neo4j.tool.copy;
+package com.brinqa.neo4j.tool.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+import lombok.Builder;
+import lombok.Value;
 
-/**
- * This is going to be more Brinqa specific.
- *
- * Nodes in Brinqa are of 2-3 categories.
- * <ul>
- *     <li>Data</li>
- *     <li>Configuration</li>
- *     <li>Logging/Historical</li>
- * </ul>
- */
-@Slf4j
-@AllArgsConstructor
-public class NodeCopyJob {
-
-
+@Value
+@Builder(toBuilder = true)
+public class IndexData {
+    long id;
+    String name;
+    String state;
+    float populationPercent;
+    boolean uniqueness;
+    String type;
+    String entityType;
+    List<String> labelsOrTypes;
+    List<String> properties;
+    String indexProvider;
 }

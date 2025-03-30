@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.neo4j.tool.index;
+package com.brinqa.neo4j.tool.index;
 
-import com.google.gson.GsonBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Iterables;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.neo4j.driver.AccessMode;
@@ -29,13 +30,12 @@ import org.neo4j.driver.TransactionCallback;
 import org.neo4j.driver.TransactionContext;
 import org.neo4j.driver.Value;
 import org.neo4j.driver.summary.ResultSummary;
-import org.neo4j.internal.helpers.collection.Iterables;
-import org.neo4j.tool.dto.Bucket;
-import org.neo4j.tool.dto.ConstraintStatus;
-import org.neo4j.tool.dto.IndexBatch;
-import org.neo4j.tool.dto.IndexData;
-import org.neo4j.tool.dto.IndexStatus;
-import org.neo4j.tool.dto.IndexStatus.State;
+import com.brinqa.neo4j.tool.dto.Bucket;
+import com.brinqa.neo4j.tool.dto.ConstraintStatus;
+import com.brinqa.neo4j.tool.dto.IndexBatch;
+import com.brinqa.neo4j.tool.dto.IndexData;
+import com.brinqa.neo4j.tool.dto.IndexStatus;
+import com.brinqa.neo4j.tool.dto.IndexStatus.State;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -53,8 +53,8 @@ import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.neo4j.tool.util.Print.println;
-import static org.neo4j.tool.util.Print.progressPercentage;
+import static com.brinqa.neo4j.tool.util.Print.println;
+import static com.brinqa.neo4j.tool.util.Print.progressPercentage;
 
 @Slf4j
 @AllArgsConstructor
@@ -83,10 +83,10 @@ public class IndexManager {
 
     public List<IndexData> readIndexesFromFile(File f) {
         final var ret = new ArrayList<IndexData>();
-        final var gson = new GsonBuilder().create();
+        final var objectMapper = new ObjectMapper();
         try (final var rdr = new BufferedReader(new FileReader(f))) {
             for (String line = rdr.readLine(); line != null; line = rdr.readLine()) {
-                final var index = gson.fromJson(line, IndexData.class);
+                final var index = objectMapper.readValue(line, IndexData.class);
                 ret.add(index);
             }
         } catch (IOException ioe) {
@@ -188,7 +188,7 @@ public class IndexManager {
 
     String indexQuery(IndexData indexData) {
         final String name = indexData.getName();
-        final String label = Iterables.firstOrNull(indexData.getLabelsOrTypes());
+        final String label = Iterables.getFirst(indexData.getLabelsOrTypes(), null);
 
         // create an index
         final String IDX_FMT =
@@ -203,11 +203,11 @@ public class IndexManager {
 
     String constraintQuery(IndexData indexData) {
         final String name = indexData.getName();
-        final String label = Iterables.firstOrNull(indexData.getLabelsOrTypes());
+        final String label = Iterables.getFirst(indexData.getLabelsOrTypes(), null);
 
         // create constraint
         final String format = createConstraintFormat();
-        final String firstProp = Iterables.firstOrNull(indexData.getProperties());
+        final String firstProp = Iterables.getFirst(indexData.getProperties(), null);
         return String.format(format, name, label, firstProp);
     }
 
@@ -236,14 +236,14 @@ public class IndexManager {
     ConstraintStatus toConstraintStatus(TransactionContext tx, String name) {
         final String FMT = "show constraints yield name WHERE name = \"%s\"";
         final var result = tx.run(String.format(FMT, name));
-        final var record = Iterables.firstOrNull(result.list());
+        final var record = Iterables.getFirst(result.list(), null);
         return ConstraintStatus.of(null != record);
     }
 
     IndexStatus toIndexState(TransactionContext tx, String name) {
         final String FMT = "show indexes yield populationPercent,state,name WHERE name = \"%s\"";
         final var result = tx.run(String.format(FMT, name));
-        final var record = Iterables.firstOrNull(result.list());
+        final var record = Iterables.getFirst(result.list(), null);
         if (null == record) {
             return IndexStatus.builder().state(State.FAILED).build();
         }
@@ -266,10 +266,11 @@ public class IndexManager {
     }
 
     public void writeIndexes(List<IndexData> indexes, File file) {
-        final var gson = new GsonBuilder().create();
+        final var objectMapper = new ObjectMapper();
         try (final var wrt = new BufferedWriter(new FileWriter(file))) {
             for (IndexData index : indexes) {
-                wrt.write(gson.toJson(index));
+                final var line = objectMapper.writeValueAsString(index);
+                wrt.write(line);
                 wrt.newLine();
             }
         } catch (IOException ioe) {
@@ -328,7 +329,7 @@ public class IndexManager {
         return this.readTransaction(
                 tx -> {
                     final Result result = tx.run(String.format(FMT, labelName));
-                    return Optional.ofNullable(Iterables.firstOrNull(result.list()))
+                    return Optional.ofNullable(Iterables.getFirst(result.list(), null))
                             .map(r -> r.get(0).asLong(0L))
                             .orElse(0L);
                 });

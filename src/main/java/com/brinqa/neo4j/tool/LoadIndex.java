@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.neo4j.tool;
+package com.brinqa.neo4j.tool;
 
+import com.google.common.collect.Iterables;
 import org.apache.commons.lang3.tuple.Pair;
-import org.neo4j.internal.helpers.collection.Iterables;
-import org.neo4j.tool.dto.Bucket;
-import org.neo4j.tool.dto.IndexData;
-import org.neo4j.tool.index.BucketBuilder;
-import org.neo4j.tool.index.IndexManager;
+import com.brinqa.neo4j.tool.dto.Bucket;
+import com.brinqa.neo4j.tool.dto.IndexData;
+import com.brinqa.neo4j.tool.index.BucketBuilder;
+import com.brinqa.neo4j.tool.index.IndexManager;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -29,7 +29,7 @@ import java.io.File;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.neo4j.tool.util.Print.println;
+import static com.brinqa.neo4j.tool.util.Print.println;
 
 /**
  * Takes a dump file and creates each of the constraints and indexes from that file in a controlled
@@ -105,7 +105,7 @@ public class LoadIndex extends AbstractIndexCommand {
     }
 
     Pair<IndexData, Long> determineSize(IndexManager indexManager, IndexData idx) {
-        String label = Iterables.firstOrNull(idx.getLabelsOrTypes());
+        String label = Iterables.getFirst(idx.getLabelsOrTypes(), null);
         long size = indexManager.labelSize(label);
         return Pair.of(idx, size);
     }

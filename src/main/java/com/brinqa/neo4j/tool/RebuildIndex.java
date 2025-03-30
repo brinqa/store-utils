@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.neo4j.tool;
+package com.brinqa.neo4j.tool;
 
-import static org.neo4j.tool.util.Print.println;
+import static com.brinqa.neo4j.tool.util.Print.println;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import org.apache.commons.lang3.StringUtils;
-import org.neo4j.tool.dto.IndexData;
-import org.neo4j.tool.index.IndexManager;
+import com.brinqa.neo4j.tool.dto.IndexData;
+import com.brinqa.neo4j.tool.index.IndexManager;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
