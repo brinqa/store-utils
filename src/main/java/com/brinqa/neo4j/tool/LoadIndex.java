@@ -15,21 +15,20 @@
  */
 package com.brinqa.neo4j.tool;
 
-import com.google.common.collect.Iterables;
-import org.apache.commons.lang3.tuple.Pair;
+import static com.brinqa.neo4j.tool.util.Print.println;
+
 import com.brinqa.neo4j.tool.dto.Bucket;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.index.BucketBuilder;
 import com.brinqa.neo4j.tool.index.IndexManager;
-import picocli.CommandLine;
-import picocli.CommandLine.Command;
-import picocli.CommandLine.Option;
-
+import com.google.common.collect.Iterables;
 import java.io.File;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import static com.brinqa.neo4j.tool.util.Print.println;
+import org.apache.commons.lang3.tuple.Pair;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 /**
  * Takes a dump file and creates each of the constraints and indexes from that file in a controlled

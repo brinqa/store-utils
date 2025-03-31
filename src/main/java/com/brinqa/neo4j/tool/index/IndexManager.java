@@ -15,28 +15,20 @@
  */
 package com.brinqa.neo4j.tool.index;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Iterables;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.neo4j.driver.AccessMode;
-import org.neo4j.driver.Driver;
-import org.neo4j.driver.Record;
-import org.neo4j.driver.Result;
-import org.neo4j.driver.Session;
-import org.neo4j.driver.SessionConfig;
-import org.neo4j.driver.Transaction;
-import org.neo4j.driver.TransactionCallback;
-import org.neo4j.driver.TransactionContext;
-import org.neo4j.driver.Value;
-import org.neo4j.driver.summary.ResultSummary;
+import static com.brinqa.neo4j.tool.util.Print.println;
+import static com.brinqa.neo4j.tool.util.Print.progressPercentage;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toUnmodifiableSet;
+import static org.neo4j.driver.internal.types.InternalTypeSystem.TYPE_SYSTEM;
+
 import com.brinqa.neo4j.tool.dto.Bucket;
 import com.brinqa.neo4j.tool.dto.ConstraintStatus;
 import com.brinqa.neo4j.tool.dto.IndexBatch;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.dto.IndexStatus;
 import com.brinqa.neo4j.tool.dto.IndexStatus.State;
-
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Iterables;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -50,11 +42,19 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
-
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toUnmodifiableSet;
-import static com.brinqa.neo4j.tool.util.Print.println;
-import static com.brinqa.neo4j.tool.util.Print.progressPercentage;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.neo4j.driver.AccessMode;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Record;
+import org.neo4j.driver.Result;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
+import org.neo4j.driver.Transaction;
+import org.neo4j.driver.TransactionCallback;
+import org.neo4j.driver.TransactionContext;
+import org.neo4j.driver.Value;
+import org.neo4j.driver.summary.ResultSummary;
 
 @Slf4j
 @AllArgsConstructor
@@ -63,22 +63,41 @@ public class IndexManager {
     private final Driver driver;
 
     static IndexData fromRecord(Record record) {
+        // id, name, state, populationPercent
         return IndexData.builder()
-                .id(record.get(0).asLong())
-                .name(record.get(1).asString())
-                .state(record.get(2).asString())
-                .populationPercent(record.get(3).asFloat())
-                .uniqueness("UNIQUE".equalsIgnoreCase(record.get(4).asString()))
-                .type(record.get(5).asString())
-                .entityType(record.get(6).asString())
-                .labelsOrTypes(toList(record.get(7)))
-                .properties(toList(record.get(8)))
-                .indexProvider(record.get(9).asString())
+                .id(record.get("id").asInt())
+                .name(record.get("name").asString())
+                .state(record.get("state").asString())
+                .populationPercent(record.get("populationPercent").asFloat())
+                .type(IndexData.Type.valueOf(record.get("type").asString()))
+                .entityType(record.get("entityType").asString())
+                .labelsOrTypes(toList(record.get("labelsOrTypes")))
+                .properties(toList(record.get("properties")))
+                .indexProvider(safeToString(record.get("indexProvider")))
+                .owningConstraint(safeToString(record.get("owningConstraint")))
+                .readCount(record.get("readCount").asLong(0))
                 .build();
     }
 
+    static String safeToString(Value value) {
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        final var ret = value.asString();
+        if ("null".equals(ret)) {
+            return null;
+        }
+        return ret;
+    }
+
     static List<String> toList(Value value) {
-        return (null == value || value.isNull()) ? List.of() : value.asList(Value::asString);
+        if (value == null || value.isNull() || value.isEmpty()) {
+            return List.of();
+        }
+        if (TYPE_SYSTEM.STRING().equals(value.type())) {
+            return List.of(safeToString(value));
+        }
+        return value.asList(IndexManager::safeToString);
     }
 
     public List<IndexData> readIndexesFromFile(File f) {
@@ -145,11 +164,6 @@ public class IndexManager {
             simpleWait(100);
         }
 
-        // index creation is finished
-        if (!index.isUniqueness()) {
-            return;
-        }
-
         // loop waiting for a bit for it to be created fail after 10 secs
         for (int i = 0; i < 100; i++) {
             final var status = constraintCheck(index.getName());
@@ -212,7 +226,7 @@ public class IndexManager {
     }
 
     public String indexOrConstraintQuery(IndexData indexData) {
-        return indexData.isUniqueness()
+        return indexData.getOwningConstraint() != null
                 ? constraintQuery(indexData)
                 : indexQuery(indexData);
     }
@@ -278,10 +292,8 @@ public class IndexManager {
         }
     }
 
-    /**
-     * Read all the index and constraints in order, of constrains first.
-     */
-    public List<IndexData> readDBIndexes() {
+    /** Read all the index and constraints in order, of constrains first. */
+    public List<IndexData> readIndexes() {
         try (Session session = driver.session()) {
             assert session != null;
             return session.executeRead(
@@ -296,7 +308,8 @@ public class IndexManager {
 
     String dropQuery(final IndexData data) {
         final var FMT =
-                (data.isUniqueness() ? "DROP CONSTRAINT %s" : "DROP INDEX %s") + " IF EXISTS;";
+                (data.getType() == IndexData.Type.FULLTEXT ? "DROP CONSTRAINT %s" : "DROP INDEX %s")
+                        + " IF EXISTS;";
         return String.format(FMT, data.getName());
     }
 
@@ -313,7 +326,7 @@ public class IndexManager {
     }
 
     public Set<String> readIndexNames() {
-        return readDBIndexes().stream().map(IndexData::getName).collect(toUnmodifiableSet());
+        return readIndexes().stream().map(IndexData::getName).collect(toUnmodifiableSet());
     }
 
     public void createAndMonitor(IndexData index, boolean recreate) {
@@ -335,9 +348,7 @@ public class IndexManager {
                 });
     }
 
-    /**
-     * Create all the indexes in one transaction for the bucket.
-     */
+    /** Create all the indexes in one transaction for the bucket. */
     public void create(final Bucket bucket) {
         for (final IndexBatch batch : bucket.getBatches()) {
             // send all the commands

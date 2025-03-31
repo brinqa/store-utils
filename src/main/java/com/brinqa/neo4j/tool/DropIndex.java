@@ -17,10 +17,10 @@ package com.brinqa.neo4j.tool;
 
 import static com.brinqa.neo4j.tool.util.Print.println;
 
-import java.io.File;
-import java.util.List;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.index.IndexManager;
+import java.io.File;
+import java.util.List;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;

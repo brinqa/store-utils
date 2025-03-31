@@ -18,18 +18,28 @@ package com.brinqa.neo4j.tool.dto;
 import java.util.List;
 import lombok.Builder;
 import lombok.Value;
+import lombok.extern.jackson.Jacksonized;
 
 @Value
+@Jacksonized
 @Builder(toBuilder = true)
 public class IndexData {
+    public enum Type {
+        RANGE,
+        FULLTEXT,
+        TEXT,
+        LOOKUP
+    }
+
     long id;
     String name;
     String state;
     float populationPercent;
-    boolean uniqueness;
-    String type;
+    Type type;
     String entityType;
     List<String> labelsOrTypes;
     List<String> properties;
     String indexProvider;
+    String owningConstraint;
+    long readCount;
 }

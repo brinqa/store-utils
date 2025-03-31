@@ -17,12 +17,12 @@ package com.brinqa.neo4j.tool;
 
 import static com.brinqa.neo4j.tool.util.Print.println;
 
+import com.brinqa.neo4j.tool.dto.IndexData;
+import com.brinqa.neo4j.tool.index.IndexManager;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import org.apache.commons.lang3.StringUtils;
-import com.brinqa.neo4j.tool.dto.IndexData;
-import com.brinqa.neo4j.tool.index.IndexManager;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -54,7 +54,7 @@ public class RebuildIndex extends AbstractIndexCommand {
 
     @Override
     void execute(final IndexManager indexManager) throws IOException {
-        final var indexes = indexManager.readDBIndexes();
+        final var indexes = indexManager.readIndexes();
         String lastIndexName = file.isFile() ? Files.readString(file.toPath()) : null;
         for (final IndexData index : indexes) {
 

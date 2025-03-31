@@ -14,7 +14,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- plugin versions -->
         <assembly-plugin.version>3.4.2</assembly-plugin.version>
-        <spotless.version>2.12.2</spotless.version>
+        <spotless.version>2.44.3</spotless.version>
 
         <maven.compiler.release>17</maven.compiler.release>
     </properties>
@@ -45,7 +45,7 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
-            <version>1.18.34</version>
+            <version>1.18.36</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -137,7 +137,6 @@
                         <importOrder/>
                         <removeUnusedImports/>
                         <googleJavaFormat>
-                            <version>1.8</version>
                             <style>AOSP</style>
                         </googleJavaFormat>
                     </java>

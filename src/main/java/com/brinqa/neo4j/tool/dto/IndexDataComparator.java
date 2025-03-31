@@ -26,12 +26,7 @@ public class IndexDataComparator implements Comparator<IndexData> {
     @Override
     public int compare(IndexData o1, IndexData o2) {
         // constraints first
-        int cmp = Boolean.compare(o1.isUniqueness(), o2.isUniqueness());
-        if (0 != cmp) {
-            return cmp;
-        }
-        // name
-        cmp = o1.getName().compareTo(o2.getName());
+        int cmp = o1.getName().compareTo(o2.getName());
         if (0 != cmp) {
             return cmp;
         }

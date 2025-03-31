@@ -17,13 +17,13 @@ package com.brinqa.neo4j.tool;
 
 import static com.brinqa.neo4j.tool.util.Print.println;
 
+import com.brinqa.neo4j.tool.index.IndexManager;
 import java.io.IOException;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Config;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
 import org.neo4j.driver.exceptions.ServiceUnavailableException;
-import com.brinqa.neo4j.tool.index.IndexManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Option;

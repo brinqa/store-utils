@@ -15,6 +15,10 @@
  */
 package com.brinqa.neo4j.tool.index;
 
+import com.brinqa.neo4j.tool.dto.Bucket;
+import com.brinqa.neo4j.tool.dto.Bucket.Size;
+import com.brinqa.neo4j.tool.dto.IndexBatch;
+import com.brinqa.neo4j.tool.dto.IndexData;
 import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,10 +27,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
-import com.brinqa.neo4j.tool.dto.Bucket;
-import com.brinqa.neo4j.tool.dto.Bucket.Size;
-import com.brinqa.neo4j.tool.dto.IndexBatch;
-import com.brinqa.neo4j.tool.dto.IndexData;
 
 public class BucketBuilder {
 
