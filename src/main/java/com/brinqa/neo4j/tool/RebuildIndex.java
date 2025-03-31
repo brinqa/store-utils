@@ -34,45 +34,64 @@ import picocli.CommandLine.Option;
  * indexes at once.
  */
 @Command(
-        name = "rebuildIndex",
-        version = "rebuildIndex 1.0",
-        description = "Rebuilds all the indexes one by one.")
+    name = "rebuildIndex",
+    version = "rebuildIndex 1.0",
+    description =
+        "Rebuilds all the indexes uses a file to store all indexes completed in order to resume the run.")
 public class RebuildIndex extends AbstractIndexCommand {
 
-    @Option(
-            defaultValue = "lastIndex",
-            names = {"-r", "--resume"},
-            description = "File to use for storing the last index.")
-    protected File file;
+  @Option(
+      required = true,
+      defaultValue = "start",
+      names = {"-s", "--start"},
+      description = "First run will drop all the indexes.")
+  protected boolean start;
 
-    // this example implements Callable, so parsing, error handling and handling user
-    // requests for usage help or version help can be done with one line of code.
-    public static void main(String... args) {
-        int exitCode = new CommandLine(new RebuildIndex()).execute(args);
-        System.exit(exitCode);
+  @Option(
+      defaultValue = "lastIndex",
+      names = {"-r", "--resume"},
+      description = "File to use for storing the last index, delete for full re-create.")
+  protected File file;
+
+  // this example implements Callable, so parsing, error handling and handling user
+  // requests for usage help or version help can be done with one line of code.
+  public static void main(String... args) {
+    int exitCode = new CommandLine(new RebuildIndex()).execute(args);
+    System.exit(exitCode);
+  }
+
+  @Override
+  void execute(final IndexManager indexManager) throws IOException {
+    // if the file exists load it
+    if (!file.isFile()) {
+      // drop all the indexes, if the resume file doesn't exist
     }
 
-    @Override
-    void execute(final IndexManager indexManager) throws IOException {
-        final var indexes = indexManager.readIndexes();
-        String lastIndexName = file.isFile() ? Files.readString(file.toPath()) : null;
-        for (final IndexData index : indexes) {
+    // create them from the file
 
-            // skip until resume index
-            if (StringUtils.isNotBlank(lastIndexName)) {
-                // skip until its found
-                if (!lastIndexName.equals(index.getName())) {
-                    continue;
-                }
-                // we found it, so set this to null
-                lastIndexName = null;
-                println("Resuming from index: %s", index.getName());
-            }
+    // build out buckets
 
-            // save resume file
-            Files.writeString(file.toPath(), index.getName());
-            indexManager.createAndMonitor(index, true);
+    // create a resume file on finished indexes
+
+    final var indexes = indexManager.readIndexes();
+    String lastIndexName = file.isFile() ? Files.readString(file.toPath()) : null;
+    for (final IndexData index : indexes) {
+
+      // skip until resume index
+      if (StringUtils.isNotBlank(lastIndexName)) {
+        // skip until its found
+        if (!lastIndexName.equals(index.getName())) {
+          continue;
         }
-        println("Last index saved to %s", this.file);
+        // we found it, so set this to null
+        lastIndexName = null;
+        println("Resuming from index: %s", index.getName());
+      }
+
+      // save resume file
+      Files.writeString(file.toPath(), index.getName());
+      indexManager.createAndMonitor(index, true);
     }
+    println("Last index saved to %s", this.file);
+  }
 }

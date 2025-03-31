@@ -23,7 +23,6 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.neo4j.driver.internal.types.InternalTypeSystem.TYPE_SYSTEM;
 
 import com.brinqa.neo4j.tool.dto.Bucket;
-import com.brinqa.neo4j.tool.dto.ConstraintStatus;
 import com.brinqa.neo4j.tool.dto.IndexBatch;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.dto.IndexStatus;
@@ -66,10 +65,10 @@ public class IndexManager {
     // id, name, state, populationPercent
     return IndexData.builder()
         .id(record.get("id").asInt())
-        .name(record.get("name").asString())
-        .state(record.get("state").asString())
-        .populationPercent(record.get("populationPercent").asFloat())
-        .type(IndexData.Type.valueOf(record.get("type").asString()))
+        .name(safeToString(record.get("name")))
+        .state(safeToString(record.get("state")))
+        .populationPercent(record.get("populationPercent").asFloat(0f))
+        .type(IndexData.Type.valueOf(safeToString(record.get("type"))))
         .entityType(record.get("entityType").asString())
         .labelsOrTypes(toList(record.get("labelsOrTypes")))
         .properties(toList(record.get("properties")))
@@ -83,7 +82,7 @@ public class IndexManager {
     if (value == null || value.isNull()) {
       return null;
     }
-    final var ret = value.asString();
+    final var ret = value.asString(null);
     if ("null".equals(ret)) {
       return null;
     }
@@ -131,7 +130,7 @@ public class IndexManager {
   boolean validIndex(final IndexData index) {
     // insure index creation started
     for (int i = 0; i < 10; i++) {
-      final var status = indexProgress(index.getName());
+      final var status = readIndexStatus(index.getName());
       if (null != status && status.getState().isOk()) {
         return true;
       }
@@ -152,9 +151,10 @@ public class IndexManager {
     println("Monitoring: %s", index.getName());
     // wait for completion
     int pct = 0;
+    IndexStatus status = null;
     while (pct < 100) {
       progressPercentage(pct);
-      final var status = indexProgress(index.getName());
+      status = readIndexStatus(index.getName());
       if (status.getState().isFailed()) {
         println("%nFailed to create index: %s", index.getName());
         return;
@@ -163,17 +163,11 @@ public class IndexManager {
       progressPercentage(pct);
       simpleWait(100);
     }
-
-    // loop waiting for a bit for it to be created fail after 10 secs
-    for (int i = 0; i < 100; i++) {
-      final var status = constraintCheck(index.getName());
-      if (status.isOnline()) {
-        return;
-      }
-      simpleWait(100);
+    if (status.getState().isOk()) {
+      return;
     }
-    final var ERROR_FMT = "Constraint '%s' failed to come online, please create manually.";
-    throw new IllegalStateException(String.format(ERROR_FMT, index.getName()));
+    final var ERROR_FMT = "Index '%s' failed to come online, please create manually.";
+    println(String.format(ERROR_FMT, index.getName()));
   }
 
   void writeTransaction(final String query) {
@@ -219,8 +213,7 @@ public class IndexManager {
     // create an index
     var fmt = "CREATE FULLTEXT INDEX %s IF NOT EXISTS FOR (n:%s) ON EACH [%s];";
     // make sure to quote all the properties of an index
-    var properties =
-        indexData.getProperties().stream().map(p -> "n." + p).collect(joining(","));
+    var properties = indexData.getProperties().stream().map(p -> "n." + p).collect(joining(","));
     return String.format(fmt, name, label, properties);
   }
 
@@ -251,34 +244,20 @@ public class IndexManager {
     return String.format(format, name, labels, properties);
   }
 
-  IndexStatus indexProgress(String name) {
+  IndexStatus readIndexStatus(String name) {
     // query for all the indexes
     try (final Session session = driver.session()) {
       assert session != null;
-      return session.executeRead(tx -> toIndexState(tx, name));
+      return session.executeRead(tx -> readIndexStatus(tx, name));
     }
   }
 
-  ConstraintStatus constraintCheck(String name) {
-    // query for all the indexes
-    try (final Session session = driver.session()) {
-      assert session != null;
-      return session.executeRead(tx -> toConstraintStatus(tx, name));
-    }
-  }
-
-  ConstraintStatus toConstraintStatus(TransactionContext tx, String name) {
-    final String FMT = "show constraints yield name WHERE name = \"%s\"";
-    final var result = tx.run(String.format(FMT, name));
-    final var record = Iterables.getFirst(result.list(), null);
-    return ConstraintStatus.of(null != record);
-  }
-
-  IndexStatus toIndexState(TransactionContext tx, String name) {
+  IndexStatus readIndexStatus(TransactionContext tx, String name) {
     final String FMT = "show indexes yield populationPercent,state,name WHERE name = \"%s\"";
     final var result = tx.run(String.format(FMT, name));
     final var record = Iterables.getFirst(result.list(), null);
     if (null == record) {
+      log.error("Unable to get index status for {}", name);
       return IndexStatus.builder().state(State.FAILED).build();
     }
     final var pct = record.get("populationPercent").asFloat(0f);
@@ -326,10 +305,10 @@ public class IndexManager {
     }
   }
 
-  static String dropQuery(final IndexData data) {
-    final boolean constraint = data.getOwningConstraint() != null;
+  static String dropQuery(final IndexData idx) {
+    final boolean constraint = idx.getOwningConstraint() != null;
     final var FMT = (constraint ? "DROP CONSTRAINT %s" : "DROP INDEX %s") + " IF EXISTS;";
-    return String.format(FMT, data.getName());
+    return String.format(FMT, idx.getName());
   }
 
   public void dropIndex(final IndexData indexData) {

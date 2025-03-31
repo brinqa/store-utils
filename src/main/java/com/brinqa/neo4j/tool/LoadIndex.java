@@ -17,12 +17,12 @@ package com.brinqa.neo4j.tool;
 
 import static com.brinqa.neo4j.tool.util.Print.println;
 
-import com.brinqa.neo4j.tool.dto.Bucket;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.index.BucketBuilder;
 import com.brinqa.neo4j.tool.index.IndexManager;
 import com.google.common.collect.Iterables;
 import java.io.File;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.apache.commons.lang3.tuple.Pair;
@@ -37,88 +37,91 @@ import picocli.CommandLine.Option;
  * be refreshed again.
  */
 @Command(
-        name = "loadIndex",
-        version = "loadIndex 1.0",
-        description =
-                "Creates indexes and constraints based on the file provided, skips existing indexes and constraints by name.")
+    name = "loadIndex",
+    version = "loadIndex 1.0",
+    description =
+        "Creates indexes and constraints based on the file provided, skips existing indexes and constraints by name.")
 public class LoadIndex extends AbstractIndexCommand {
 
-    @Option(
-            names = {"-d", "--dryrun"},
-            description = "Just print all the queries.")
-    protected boolean dryRun;
+  @Option(
+      names = {"-d", "--dryrun"},
+      description = "Just print all the queries.")
+  protected boolean dryRun;
 
-    @Option(
-            required = true,
-            names = {"-f", "--filename"},
-            description = "File to load all the indexes.",
-            defaultValue = "dump.json")
-    protected File file;
+  @Option(
+      required = true,
+      names = {"-f", "--filename"},
+      description = "File to load all the indexes.",
+      defaultValue = "dump.json")
+  protected File file;
 
-    @Option(
-            names = {"-r", "--recreate"},
-            description = "Recreate each of the indexes in the file.")
-    protected boolean recreate;
+  @Option(
+      names = {"-f", "--filter"},
+      description = "Filter indexes that contain any of these properties.")
+  protected List<String> filterProperties;
 
-    // this example implements Callable, so parsing, error handling and handling user
-    // requests for usage help or version help can be done with one line of code.
-    public static void main(String... args) {
-        int exitCode = new CommandLine(new LoadIndex()).execute(args);
-        System.exit(exitCode);
+  // this example implements Callable, so parsing, error handling and handling user
+  // requests for usage help or version help can be done with one line of code.
+  public static void main(String... args) {
+    int exitCode = new CommandLine(new LoadIndex()).execute(args);
+    System.exit(exitCode);
+  }
+
+  @Override
+  void execute(final IndexManager indexManager) {
+    final var fileIndexes = indexManager.readIndexesFromFile(file);
+
+    // just print all the queries
+    if (dryRun) {
+      for (IndexData x : fileIndexes) {
+        final String query = indexManager.createIndexQueryQuery(x);
+        println(query);
+      }
+      return;
     }
 
-    @Override
-    void execute(final IndexManager indexManager) {
-        final var fileIndexes = indexManager.readIndexesFromFile(file);
+    // read all current indexes
+    final var indexNames = indexManager.readIndexNames();
 
-        // just print all the queries
-        if (dryRun) {
-            for (IndexData x : fileIndexes) {
-                final String query = indexManager.createIndexQueryQuery(x);
-                println(query);
-            }
-            return;
-        }
+    // filter through missing
+    final var missing =
+        fileIndexes.stream()
+            .filter(indexData -> filterExisting(indexNames, indexData))
+            .collect(Collectors.toList());
 
-        // read all current indexes
-        final var indexNames = indexManager.readIndexNames();
+    // find all the sizes
+    final var sizes =
+        missing.parallelStream()
+            .filter(idx -> idx.getLabelsOrTypes().size() == 1)
+            .map(idx -> determineSize(indexManager, idx))
+            .collect(Collectors.toList());
 
-        // filter through missing
-        final var missing =
-                fileIndexes.stream()
-                        .filter(indexData -> filterExisting(indexNames, indexData))
-                        .collect(Collectors.toList());
-
-        // find all the sizes
-        final var sizes =
-                missing.parallelStream()
-                        .filter(idx -> idx.getLabelsOrTypes().size() == 1)
-                        .map(idx -> determineSize(indexManager, idx))
-                        .collect(Collectors.toList());
-
-        // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
-        final var buckets = BucketBuilder.build(sizes);
-        for (Bucket bucket : buckets) {
-            indexManager.create(bucket);
-        }
+    // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
+    final var buckets = BucketBuilder.build(sizes);
+    for (final var bucket : buckets) {
+      indexManager.create(bucket);
     }
+  }
 
-    Pair<IndexData, Long> determineSize(IndexManager indexManager, IndexData idx) {
-        String label = Iterables.getFirst(idx.getLabelsOrTypes(), null);
-        long size = indexManager.labelSize(label);
-        return Pair.of(idx, size);
+  Pair<IndexData, Long> determineSize(final IndexManager indexManager, IndexData idx) {
+    String label = Iterables.getFirst(idx.getLabelsOrTypes(), null);
+    if (null != label) {
+      long size = indexManager.labelSize(label);
+      return Pair.of(idx, size);
     }
+    return Pair.of(idx, 0L);
+  }
 
-    boolean filterExisting(Set<String> indexNames, IndexData indexData) {
-        if (indexData.getLabelsOrTypes().isEmpty()) {
-            println("Filtering as there's no Label: %s", indexData);
-            return false;
-        }
-        // if recreate always drop and then create
-        if (!recreate && indexNames.contains(indexData.getName())) {
-            println("Index with name '%s' already exists, skipping.", indexData.getName());
-            return false;
-        }
-        return true;
+  boolean filterExisting(Set<String> indexNames, IndexData indexData) {
+    if (indexData.getLabelsOrTypes().isEmpty()) {
+      println("Filtering as there's no Label: %s", indexData);
+      return false;
     }
+    // if recreate always drop and then create
+    if (!indexNames.contains(indexData.getName())) {
+      println("Index with name '%s' already exists, skipping.", indexData.getName());
+      return false;
+    }
+    return true;
+  }
 }
