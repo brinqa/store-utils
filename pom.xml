@@ -167,10 +167,6 @@
                             <name>drop</name>
                             <mainClass>com.brinqa.neo4j.tool.DropIndex</mainClass>
                         </program>
-                        <program>
-                            <name>reindex</name>
-                            <mainClass>com.brinqa.neo4j.tool.RebuildIndex</mainClass>
-                        </program>
                     </programs>
                     <repositoryLayout>flat</repositoryLayout>
                     <repositoryName>lib</repositoryName>

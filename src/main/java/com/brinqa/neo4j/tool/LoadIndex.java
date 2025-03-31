@@ -32,9 +32,9 @@ import picocli.CommandLine.Option;
 
 /**
  * Takes a dump file and creates each of the constraints and indexes from that file in a controlled
- * manner. In particular, it waits until an index is online before moving to the next as adding to
+ * manner. In particular, it waits until an index is online before moving to the next as adding too
  * many indexes at any onetime will result in either an OOME or a corrupted index that will need to
- * be refreshed again.
+ * be refreshed again. Skips existing indexes by default.
  */
 @Command(
     name = "loadIndex",
@@ -54,6 +54,13 @@ public class LoadIndex extends AbstractIndexCommand {
       description = "File to load all the indexes.",
       defaultValue = "dump.json")
   protected File file;
+
+  @Option(
+          required = true,
+          names = {"-r", "--refresh"},
+          description = "Refresh the index by dropping and recreating.",
+          defaultValue = "false")
+  protected boolean refresh;
 
   @Option(
       names = {"-f", "--filter"},
@@ -79,15 +86,6 @@ public class LoadIndex extends AbstractIndexCommand {
       }
       return;
     }
-
-    // read all current indexes
-    final var indexNames = indexManager.readIndexNames();
-
-    // filter through missing
-    final var missing =
-        fileIndexes.stream()
-            .filter(indexData -> filterExisting(indexNames, indexData))
-            .collect(Collectors.toList());
 
     // find all the sizes
     final var sizes =
