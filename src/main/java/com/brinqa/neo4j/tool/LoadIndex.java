@@ -74,13 +74,13 @@ public class LoadIndex extends AbstractIndexCommand {
         // just print all the queries
         if (dryRun) {
             for (IndexData x : fileIndexes) {
-                final String query = indexManager.indexOrConstraintQuery(x);
+                final String query = indexManager.createIndexQueryQuery(x);
                 println(query);
             }
             return;
         }
 
-        // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
+        // read all current indexes
         final var indexNames = indexManager.readIndexNames();
 
         // filter through missing
@@ -96,7 +96,7 @@ public class LoadIndex extends AbstractIndexCommand {
                         .map(idx -> determineSize(indexManager, idx))
                         .collect(Collectors.toList());
 
-        // process each bucket
+        // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
         final var buckets = BucketBuilder.build(sizes);
         for (Bucket bucket : buckets) {
             indexManager.create(bucket);

@@ -1,6 +1,7 @@
 package com.brinqa.neo4j.tool;
 
 import com.brinqa.neo4j.tool.dto.IndexData;
+import com.brinqa.neo4j.tool.index.IndexManager;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
@@ -29,7 +30,6 @@ public class DumpLoadIndexUnitTest {
         final var uri = neo4j.getBoltUrl();
         final var username = "neo4j";
         final var password = neo4j.getAdminPassword();
-
         driver = Neo4jHelper.buildDriver(uri, username, password, false);
     }
 
@@ -45,27 +45,10 @@ public class DumpLoadIndexUnitTest {
         final var f = new File("dump-index.json");
         final var typedef = new TypeReference<List<IndexData>>() {};
         final var indexes = mapper.readValue(f, typedef);
-
-        // indexes.stream().map(IndexData::getType).distinct().forEach(System.out::println);
-        // System.out.println(indexes);
-        final Map<String, IndexData> nameToIndex = new HashMap<>();
+        
+        final var mgr = new IndexManager(driver);
         for (IndexData index : indexes) {
-            nameToIndex.put(index.getName(), index);
+            mgr.createAndMonitor(index, true);
         }
-
-        indexes.forEach(
-                index -> {
-                    // owning constraint exists it's unique
-                    //            if (null != index.getOwningConstraint()) {
-                    //                System.out.println(index);
-                    //                var owner = nameToIndex.get(index.getOwningConstraint());
-                    //                System.out.println(owner);
-                    //            }
-
-                    // index provider
-                    if (null != index.getIndexProvider()) {
-                        System.out.println(index);
-                    }
-                });
     }
 }
