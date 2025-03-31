@@ -34,31 +34,31 @@ import picocli.CommandLine.Option;
  * indexes at once.
  */
 @Command(
-        name = "dumpIndex",
-        version = "dumpIndex 1.0",
-        description = "Dumps all the indexes and constraints to a file for loadIndex.")
+    name = "dumpIndex",
+    version = "dumpIndex 1.0",
+    description = "Dumps all the indexes and constraints to a file for loadIndex.")
 public class DumpIndex extends AbstractIndexCommand {
 
-    @Option(
-            names = {"-f", "--filename"},
-            description = "Name of the file to dump.",
-            defaultValue = "dump.json")
-    protected File file;
+  @Option(
+      names = {"-f", "--filename"},
+      description = "Name of the file to dump.",
+      defaultValue = "dump.json")
+  protected File file;
 
-    // this example implements Callable, so parsing, error handling and handling user
-    // requests for usage help or version help can be done with one line of code.
-    public static void main(String... args) {
-        int exitCode = new CommandLine(new DumpIndex()).execute(args);
-        System.exit(exitCode);
-    }
+  // this example implements Callable, so parsing, error handling and handling user
+  // requests for usage help or version help can be done with one line of code.
+  public static void main(String... args) {
+    int exitCode = new CommandLine(new DumpIndex()).execute(args);
+    System.exit(exitCode);
+  }
 
-    @Override
-    void execute(final IndexManager indexManager) {
-        // query for all the indexes
-        final List<IndexData> indexes = indexManager.readIndexes();
-        println("Building index file: %s", this.file);
-        final List<IndexData> sortedIndexes =
-                indexes.stream().sorted(new IndexDataComparator()).collect(Collectors.toList());
-        indexManager.writeIndexes(this.file, sortedIndexes);
-    }
+  @Override
+  void execute(final IndexManager indexManager) {
+    // query for all the indexes
+    final List<IndexData> indexes = indexManager.readIndexes();
+    println("Building index file: %s", this.file);
+    final List<IndexData> sortedIndexes =
+        indexes.stream().sorted(new IndexDataComparator()).collect(Collectors.toList());
+    indexManager.writeIndexes(this.file, sortedIndexes);
+  }
 }

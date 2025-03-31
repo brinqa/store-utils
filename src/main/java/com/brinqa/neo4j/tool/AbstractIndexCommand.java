@@ -30,58 +30,58 @@ import picocli.CommandLine.Option;
 
 abstract class AbstractIndexCommand implements Runnable {
 
-    private static final Logger LOG = LoggerFactory.getLogger(AbstractIndexCommand.class);
+  private static final Logger LOG = LoggerFactory.getLogger(AbstractIndexCommand.class);
 
-    @Option(
-            names = {"-n", "--no_auth"},
-            description = "No authentication.")
-    protected boolean noAuth;
+  @Option(
+      names = {"-n", "--no_auth"},
+      description = "No authentication.")
+  protected boolean noAuth;
 
-    @Option(
-            names = {"-a", "--url"},
-            description = "Neo4j URL",
-            defaultValue = "${NEO4J_URL:-bolt://localhost:7687}")
-    protected String uri;
+  @Option(
+      names = {"-a", "--url"},
+      description = "Neo4j URL",
+      defaultValue = "${NEO4J_URL:-bolt://localhost:7687}")
+  protected String uri;
 
-    @Option(
-            names = {"-u", "--username"},
-            description = "Neo4j Username",
-            defaultValue = "${NEO4J_USERNAME}")
-    protected String username;
+  @Option(
+      names = {"-u", "--username"},
+      description = "Neo4j Username",
+      defaultValue = "${NEO4J_USERNAME}")
+  protected String username;
 
-    @Option(
-            names = {"-p", "--password"},
-            description = "Neo4j Password",
-            defaultValue = "${NEO4J_PASSWORD}")
-    protected String password;
+  @Option(
+      names = {"-p", "--password"},
+      description = "Neo4j Password",
+      defaultValue = "${NEO4J_PASSWORD}")
+  protected String password;
 
-    @Override
-    public void run() {
-        try (final var driver = buildDriver(uri, username, password, noAuth)) {
-            execute(new IndexManager(driver));
-        } catch (IOException ioe) {
-            throw new IllegalStateException(ioe);
-        }
+  @Override
+  public void run() {
+    try (final var driver = buildDriver(uri, username, password, noAuth)) {
+      execute(new IndexManager(driver));
+    } catch (IOException ioe) {
+      throw new IllegalStateException(ioe);
     }
+  }
 
-    abstract void execute(IndexManager manager) throws IOException;
+  abstract void execute(IndexManager manager) throws IOException;
 
-    private Driver buildDriver(String uri, String username, String password, boolean noAuth) {
-        // create the driver
-        for (int i = 0; i < 5; i++) {
-            try {
-                final var config = Config.defaultConfig();
-                if (noAuth) {
-                    println("Attempting to connect without authentication.");
-                    return GraphDatabase.driver(uri, config);
-                }
-                println("Attempting to connect with basic authentication.");
-                final var token = AuthTokens.basic(username, password);
-                return GraphDatabase.driver(uri, token, config);
-            } catch (ServiceUnavailableException ex) {
-                LOG.error("Failed to connect retrying..");
-            }
+  private Driver buildDriver(String uri, String username, String password, boolean noAuth) {
+    // create the driver
+    for (int i = 0; i < 5; i++) {
+      try {
+        final var config = Config.defaultConfig();
+        if (noAuth) {
+          println("Attempting to connect without authentication.");
+          return GraphDatabase.driver(uri, config);
         }
-        throw new IllegalStateException("Unable to connect to Neo4J: " + uri);
+        println("Attempting to connect with basic authentication.");
+        final var token = AuthTokens.basic(username, password);
+        return GraphDatabase.driver(uri, token, config);
+      } catch (ServiceUnavailableException ex) {
+        LOG.error("Failed to connect retrying..");
+      }
     }
+    throw new IllegalStateException("Unable to connect to Neo4J: " + uri);
+  }
 }

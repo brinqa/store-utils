@@ -20,5 +20,5 @@ import lombok.Value;
 /** Use an object for extensibility. */
 @Value(staticConstructor = "of")
 public class ConstraintStatus {
-    boolean online;
+  boolean online;
 }

@@ -32,32 +32,32 @@ import picocli.CommandLine.Option;
  * indexes at once.
  */
 @Command(
-        name = "dropIndex",
-        version = "dropIndex 1.0",
-        description = "Drops indexes based on the dump file.")
+    name = "dropIndex",
+    version = "dropIndex 1.0",
+    description = "Drops indexes based on the dump file.")
 public class DropIndex extends AbstractIndexCommand {
 
-    @Option(
-            required = true,
-            names = {"-f", "--file"},
-            description = "File to use to drop indexes.")
-    protected File file;
+  @Option(
+      required = true,
+      names = {"-f", "--file"},
+      description = "File to use to drop indexes.")
+  protected File file;
 
-    // this example implements Callable, so parsing, error handling and handling user
-    // requests for usage help or version help can be done with one line of code.
-    public static void main(String... args) {
-        int exitCode = new CommandLine(new DropIndex()).execute(args);
-        System.exit(exitCode);
-    }
+  // this example implements Callable, so parsing, error handling and handling user
+  // requests for usage help or version help can be done with one line of code.
+  public static void main(String... args) {
+    int exitCode = new CommandLine(new DropIndex()).execute(args);
+    System.exit(exitCode);
+  }
 
-    @Override
-    void execute(final IndexManager indexManager) {
-        // query for all the indexes
-        final List<IndexData> indexes = indexManager.readIndexesFromFile(this.file);
-        println("Dropping indexes from file: %s", this.file.getAbsoluteFile());
-        for (IndexData index : indexes) {
-            println("Dropping %s", index.getName());
-            indexManager.dropIndex(index);
-        }
+  @Override
+  void execute(final IndexManager indexManager) {
+    // query for all the indexes
+    final List<IndexData> indexes = indexManager.readIndexesFromFile(this.file);
+    println("Dropping indexes from file: %s", this.file.getAbsoluteFile());
+    for (IndexData index : indexes) {
+      println("Dropping %s", index.getName());
+      indexManager.dropIndex(index);
     }
+  }
 }

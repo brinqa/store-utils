@@ -23,12 +23,12 @@ import lombok.Value;
 @Value
 @Builder(toBuilder = true)
 public class Bucket {
-    public enum Size {
-        SMALL,
-        MEDIUM,
-        LARGE;
-    }
+  public enum Size {
+    SMALL,
+    MEDIUM,
+    LARGE;
+  }
 
-    Size size;
-    @Singular List<IndexBatch> batches;
+  Size size;
+  @Singular List<IndexBatch> batches;
 }

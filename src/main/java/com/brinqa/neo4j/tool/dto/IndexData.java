@@ -24,22 +24,22 @@ import lombok.extern.jackson.Jacksonized;
 @Jacksonized
 @Builder(toBuilder = true)
 public class IndexData {
-    public enum Type {
-        RANGE,
-        FULLTEXT,
-        TEXT,
-        LOOKUP
-    }
+  public enum Type {
+    RANGE,
+    FULLTEXT,
+    TEXT,
+    LOOKUP
+  }
 
-    long id;
-    String name;
-    String state;
-    float populationPercent;
-    Type type;
-    String entityType;
-    List<String> labelsOrTypes;
-    List<String> properties;
-    String indexProvider;
-    String owningConstraint;
-    long readCount;
+  long id;
+  String name;
+  String state;
+  float populationPercent;
+  Type type;
+  String entityType;
+  List<String> labelsOrTypes;
+  List<String> properties;
+  String indexProvider;
+  String owningConstraint;
+  long readCount;
 }

@@ -24,5 +24,5 @@ import lombok.Value;
 @Builder(toBuilder = true)
 public class IndexBatch {
 
-    @Singular List<IndexData> indexes;
+  @Singular List<IndexData> indexes;
 }
