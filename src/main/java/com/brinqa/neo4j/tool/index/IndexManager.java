@@ -371,7 +371,7 @@ public class IndexManager {
    * Method called by LoadIndex
    *
    * @param indexes indexes to create/refresh
-   * @param refresh if they should dropped first.
+   * @param refresh if the index should be 'dropped' first
    */
   public void loadIndexes(List<IndexData> indexes, boolean refresh) {
 
