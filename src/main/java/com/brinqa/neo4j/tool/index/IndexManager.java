@@ -19,11 +19,9 @@ import static com.brinqa.neo4j.tool.util.Print.println;
 import static com.brinqa.neo4j.tool.util.Print.progressPercentage;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.util.stream.Collectors.joining;
-import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.neo4j.driver.internal.types.InternalTypeSystem.TYPE_SYSTEM;
 
 import com.brinqa.neo4j.tool.dto.Bucket;
-import com.brinqa.neo4j.tool.dto.IndexBatch;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.dto.IndexStatus;
 import com.brinqa.neo4j.tool.dto.IndexStatus.State;
@@ -38,18 +36,17 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.Pair;
 import org.neo4j.driver.AccessMode;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.Record;
 import org.neo4j.driver.Result;
 import org.neo4j.driver.Session;
 import org.neo4j.driver.SessionConfig;
-import org.neo4j.driver.Transaction;
 import org.neo4j.driver.TransactionCallback;
 import org.neo4j.driver.TransactionContext;
 import org.neo4j.driver.Value;
@@ -113,7 +110,7 @@ public class IndexManager {
     return ret;
   }
 
-  void createIndex(IndexData index) {
+  public void createIndex(IndexData index) {
     final var query = createIndexQueryQuery(index);
     println(query);
     try {
@@ -147,7 +144,7 @@ public class IndexManager {
     }
   }
 
-  void monitorCreation(final IndexData index) {
+  public void monitorCreation(final IndexData index) {
     println("Monitoring: %s", index.getName());
     // wait for completion
     int pct = 0;
@@ -323,18 +320,6 @@ public class IndexManager {
     }
   }
 
-  public Set<String> readIndexNames() {
-    return readIndexes().stream().map(IndexData::getName).collect(toUnmodifiableSet());
-  }
-
-  public void createAndMonitor(IndexData index, boolean recreate) {
-    if (recreate) {
-      dropIndex(index);
-    }
-    createIndex(index);
-    monitorCreation(index);
-  }
-
   public long labelSize(String labelName) {
     final String FMT = "MATCH (n:`%s`) return count(n) as count";
     return this.readTransaction(
@@ -347,23 +332,45 @@ public class IndexManager {
   }
 
   /** Create all the indexes in one transaction for the bucket. */
-  public void create(final Bucket bucket) {
-    for (final IndexBatch batch : bucket.getBatches()) {
-      // send all the commands
-      try (final Session s = driver.session()) {
-        final Transaction tx = s.beginTransaction();
-        for (IndexData index : batch.getIndexes()) {
-          final var q = createIndexQueryQuery(index);
-          println(q);
-          tx.run(q);
-        }
-        tx.commit();
-      } catch (Exception e) {
-        throw new RuntimeException(e);
+  void create(final Bucket bucket, final boolean recreate) {
+    // send all the commands
+    for (IndexData index : bucket.getIndexes()) {
+      if (recreate) {
+        // drop the index if it exists
+        dropIndex(index);
       }
-
-      // monitor the indexes
-      batch.getIndexes().forEach(this::monitorCreation);
+      // create the index if it does not exist
+      createIndex(index);
     }
+    // monitor the indexes
+    bucket.getIndexes().forEach(this::monitorCreation);
+  }
+
+  Pair<IndexData, Long> determineSize(IndexData idx) {
+    String label = Iterables.getFirst(idx.getLabelsOrTypes(), null);
+    if (null != label) {
+      long size = labelSize(label);
+      return Pair.of(idx, size);
+    }
+    return Pair.of(idx, 0L);
+  }
+
+  /**
+   * Method called by LoadIndex
+   *
+   * @param indexes indexes to create/refresh
+   * @param refresh if they should dropped first.
+   */
+  public void loadIndexes(List<IndexData> indexes, boolean refresh) {
+
+    // find all the sizes
+    final var sizes =
+        indexes.parallelStream()
+            .filter(idx -> idx.getLabelsOrTypes().size() == 1)
+            .map(this::determineSize)
+            .collect(Collectors.toList());
+
+    // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
+    BucketBuilder.build(sizes).forEach(b -> create(b, refresh));
   }
 }

@@ -163,10 +163,6 @@
                             <name>load</name>
                             <mainClass>com.brinqa.neo4j.tool.LoadIndex</mainClass>
                         </program>
-                        <program>
-                            <name>drop</name>
-                            <mainClass>com.brinqa.neo4j.tool.DropIndex</mainClass>
-                        </program>
                     </programs>
                     <repositoryLayout>flat</repositoryLayout>
                     <repositoryName>lib</repositoryName>

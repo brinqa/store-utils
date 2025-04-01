@@ -103,7 +103,8 @@ public class DumpIndexTest {
 
     final var mgr = new IndexManager(driver);
     for (IndexData index : indexes) {
-      mgr.createAndMonitor(index, true);
+      mgr.createIndex(index);
+      mgr.monitorCreation(index);
     }
   }
 }

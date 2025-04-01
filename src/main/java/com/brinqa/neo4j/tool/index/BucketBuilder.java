@@ -17,20 +17,25 @@ package com.brinqa.neo4j.tool.index;
 
 import com.brinqa.neo4j.tool.dto.Bucket;
 import com.brinqa.neo4j.tool.dto.Bucket.Size;
-import com.brinqa.neo4j.tool.dto.IndexBatch;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.google.common.collect.Lists;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class BucketBuilder {
 
-  public static List<Bucket> build(List<Pair<IndexData, Long>> pairs) {
+  /**
+   * Create a stream of {@link Bucket} by partitioning the list. If the index supports a LARGE then
+   * there can only be 4 indexes in a LARGE bucket.
+   *
+   * @param pairs a list of index to size of node label.
+   * @return stream of buckets partition with S/M/L.
+   */
+  public static Stream<Bucket> build(List<Pair<IndexData, Long>> pairs) {
     final Map<Size, ArrayList<IndexData>> map = new HashMap<>();
     for (Pair<IndexData, Long> pair : pairs) {
       final var size = toSize(pair.getValue());
@@ -39,18 +44,20 @@ public class BucketBuilder {
     }
 
     // break up into buckets
-    return map.entrySet().stream()
-        .flatMap(e -> toBuckets(e.getKey(), e.getValue()))
-        .collect(Collectors.toList());
+    return map.entrySet().stream().flatMap(e -> toBuckets(e.getKey(), e.getValue()));
   }
 
+  /**
+   * Create a stream of {@link Bucket} by partitioning the list. If the index supports a LARGE then
+   * there can only be 4 indexes in a LARGE bucket.
+   *
+   * @param size bucket size S/M/L
+   * @param values list of indexes
+   * @return stream of buckets partition with S/M/L.
+   */
   static Stream<Bucket> toBuckets(Bucket.Size size, List<IndexData> values) {
-    return Lists.partition(values, toBatchSize(size)).stream().map(b -> toBucket(size, b));
-  }
-
-  static Bucket toBucket(Bucket.Size size, List<IndexData> values) {
-    final var batch = IndexBatch.builder().indexes(values).build();
-    return Bucket.builder().size(size).batch(batch).build();
+    return Lists.partition(values, toBatchSize(size)).stream()
+        .map(b -> Bucket.builder().size(size).indexes(values).build());
   }
 
   static int toBatchSize(Size size) {

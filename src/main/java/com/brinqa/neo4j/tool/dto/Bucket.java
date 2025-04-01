@@ -26,9 +26,9 @@ public class Bucket {
   public enum Size {
     SMALL,
     MEDIUM,
-    LARGE;
+    LARGE
   }
 
   Size size;
-  @Singular List<IndexBatch> batches;
+  @Singular List<IndexData> indexes;
 }

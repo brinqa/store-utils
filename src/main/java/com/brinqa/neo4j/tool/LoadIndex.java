@@ -56,10 +56,10 @@ public class LoadIndex extends AbstractIndexCommand {
   protected File file;
 
   @Option(
-          required = true,
-          names = {"-r", "--refresh"},
-          description = "Refresh the index by dropping and recreating.",
-          defaultValue = "false")
+      required = true,
+      names = {"-r", "--refresh"},
+      description = "Refresh the index by dropping and recreating.",
+      defaultValue = "false")
   protected boolean refresh;
 
   @Option(
@@ -87,39 +87,6 @@ public class LoadIndex extends AbstractIndexCommand {
       return;
     }
 
-    // find all the sizes
-    final var sizes =
-        missing.parallelStream()
-            .filter(idx -> idx.getLabelsOrTypes().size() == 1)
-            .map(idx -> determineSize(indexManager, idx))
-            .collect(Collectors.toList());
-
-    // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
-    final var buckets = BucketBuilder.build(sizes);
-    for (final var bucket : buckets) {
-      indexManager.create(bucket);
-    }
-  }
-
-  Pair<IndexData, Long> determineSize(final IndexManager indexManager, IndexData idx) {
-    String label = Iterables.getFirst(idx.getLabelsOrTypes(), null);
-    if (null != label) {
-      long size = indexManager.labelSize(label);
-      return Pair.of(idx, size);
-    }
-    return Pair.of(idx, 0L);
-  }
-
-  boolean filterExisting(Set<String> indexNames, IndexData indexData) {
-    if (indexData.getLabelsOrTypes().isEmpty()) {
-      println("Filtering as there's no Label: %s", indexData);
-      return false;
-    }
-    // if recreate always drop and then create
-    if (!indexNames.contains(indexData.getName())) {
-      println("Index with name '%s' already exists, skipping.", indexData.getName());
-      return false;
-    }
-    return true;
+    indexManager.loadIndexes(fileIndexes, refresh);
   }
 }
