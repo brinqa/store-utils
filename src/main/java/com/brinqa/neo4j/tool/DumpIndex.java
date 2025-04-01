@@ -34,13 +34,14 @@ import picocli.CommandLine.Option;
 @Command(
     name = "dumpIndex",
     version = "dumpIndex 1.0",
-    description = "Dumps all the indexes and constraints to a file for loadIndex.")
+    description =
+        "Dumps all the indexes and constraints to a file for 'loadIndex'. The file is newline delimited json.")
 public class DumpIndex extends AbstractIndexCommand {
 
   @Option(
       names = {"-f", "--filename"},
       description = "Name of the file to dump.",
-      defaultValue = "dump.json")
+      defaultValue = "dump.jsonl")
   protected File file;
 
   // this example implements Callable, so parsing, error handling and handling user
@@ -58,5 +59,7 @@ public class DumpIndex extends AbstractIndexCommand {
     final List<IndexData> sortedIndexes =
         indexes.stream().sorted(new IndexDataComparator()).collect(Collectors.toList());
     indexManager.writeIndexes(this.file, sortedIndexes);
+
+
   }
 }

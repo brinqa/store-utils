@@ -17,6 +17,8 @@ import static com.brinqa.neo4j.tool.dto.IndexData.Type.LOOKUP;
 import static com.brinqa.neo4j.tool.util.Print.println;
 import static com.brinqa.neo4j.tool.util.Print.progressPercentage;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.file.StandardOpenOption.CREATE;
+import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.util.stream.Collectors.joining;
 import static org.neo4j.driver.internal.types.InternalTypeSystem.TYPE_SYSTEM;
@@ -289,7 +291,7 @@ public class IndexManager {
 
   public void writeIndexes(File file, List<IndexData> indexes) {
     final var objectMapper = new ObjectMapper();
-    try (final var wrt = Files.newBufferedWriter(file.toPath(), TRUNCATE_EXISTING)) {
+    try (final var wrt = Files.newBufferedWriter(file.toPath(), TRUNCATE_EXISTING, CREATE)) {
       for (IndexData index : indexes) {
         final var line = objectMapper.writeValueAsString(index);
         wrt.write(line);
@@ -305,12 +307,10 @@ public class IndexManager {
     try (Session session = driver.session()) {
       assert session != null;
       return session.executeRead(
-          tx -> {
-            final var result = tx.run("show indexes;");
-            return result.list().stream()
-                .map(IndexManager::fromRecord)
-                .collect(Collectors.toList());
-          });
+          tx ->
+              tx.run("show indexes;").list().stream()
+                  .map(IndexManager::fromRecord)
+                  .collect(Collectors.toList()));
     }
   }
 

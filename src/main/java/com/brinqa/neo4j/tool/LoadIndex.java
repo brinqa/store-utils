@@ -44,7 +44,7 @@ public class LoadIndex extends AbstractIndexCommand {
       required = true,
       names = {"-f", "--filename"},
       description = "File to load all the indexes.",
-      defaultValue = "dump.json")
+      defaultValue = "dump.jsonl")
   protected File file;
 
   @Option(

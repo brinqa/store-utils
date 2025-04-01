@@ -7,3 +7,4 @@ target
 *.db*
 .shell_history
 *.json
+*.jsonl

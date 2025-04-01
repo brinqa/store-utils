@@ -15,10 +15,8 @@ package com.brinqa.neo4j.tool;
 
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.index.IndexManager;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
-import java.util.List;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Ignore;
@@ -111,15 +109,9 @@ public class DumpIndexTest {
   @Test
   @Ignore
   public void indexLoad() throws Exception {
-    final var mapper = new ObjectMapper();
-    final var f = new File("dump-index.json");
-    final var typedef = new TypeReference<List<IndexData>>() {};
-    final var indexes = mapper.readValue(f, typedef);
-
-    final var mgr = new IndexManager(driver);
-    for (IndexData index : indexes) {
-      mgr.createIndex(index);
-      mgr.monitorCreation(index);
-    }
+      final var mgr = new IndexManager(driver);
+      LoadIndex loadIndex = new LoadIndex();
+      loadIndex.file = new File("dump.jsonl");
+      loadIndex.execute(mgr);
   }
 }
