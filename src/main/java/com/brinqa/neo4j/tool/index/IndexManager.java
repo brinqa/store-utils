@@ -18,7 +18,6 @@ import static com.brinqa.neo4j.tool.util.Print.println;
 import static com.brinqa.neo4j.tool.util.Print.progressPercentage;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.nio.file.StandardOpenOption.CREATE;
-import static java.nio.file.StandardOpenOption.CREATE_NEW;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.util.stream.Collectors.joining;
 import static org.neo4j.driver.internal.types.InternalTypeSystem.TYPE_SYSTEM;

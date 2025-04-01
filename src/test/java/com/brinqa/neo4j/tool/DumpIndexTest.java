@@ -109,9 +109,9 @@ public class DumpIndexTest {
   @Test
   @Ignore
   public void indexLoad() throws Exception {
-      final var mgr = new IndexManager(driver);
-      LoadIndex loadIndex = new LoadIndex();
-      loadIndex.file = new File("dump.jsonl");
-      loadIndex.execute(mgr);
+    final var mgr = new IndexManager(driver);
+    LoadIndex loadIndex = new LoadIndex();
+    loadIndex.file = new File("dump.jsonl");
+    loadIndex.execute(mgr);
   }
 }
