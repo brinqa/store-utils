@@ -10,7 +10,7 @@
     <name>store-utils</name>
 
     <properties>
-        <revision>5.18.1.x-SNAPSHOT</revision>
+        <revision>5.0.x-SNAPSHOT</revision>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <!-- plugin versions -->
         <assembly-plugin.version>3.4.2</assembly-plugin.version>
