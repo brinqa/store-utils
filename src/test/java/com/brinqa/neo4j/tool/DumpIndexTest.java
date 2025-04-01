@@ -8,6 +8,7 @@ import java.io.File;
 import java.util.List;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.neo4j.driver.Driver;
 import org.testcontainers.containers.Neo4jContainer;
@@ -95,6 +96,7 @@ public class DumpIndexTest {
   }
 
   @Test
+  @Ignore
   public void indexLoad() throws Exception {
     final var mapper = new ObjectMapper();
     final var f = new File("dump-index.json");

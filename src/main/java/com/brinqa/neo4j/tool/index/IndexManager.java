@@ -15,6 +15,7 @@
  */
 package com.brinqa.neo4j.tool.index;
 
+import static com.brinqa.neo4j.tool.dto.IndexData.Type.LOOKUP;
 import static com.brinqa.neo4j.tool.util.Print.println;
 import static com.brinqa.neo4j.tool.util.Print.progressPercentage;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -195,10 +196,21 @@ public class IndexManager {
       case FULLTEXT:
         return buildFullTextIndexQuery(idx);
       case LOOKUP:
-        return buildIndexQuery(idx);
+        return buildLookupQuery(idx);
     }
-
     throw new IllegalStateException("Unsupported index type: " + idx.getType());
+  }
+
+  private String buildLookupQuery(IndexData idx) {
+    final var NODE_LOOKUP = "CREATE LOOKUP INDEX %s IF NOT EXISTS FOR (n) ON EACH labels(n);";
+    if ("NODE".equals(idx.getEntityType())) {
+      return String.format(NODE_LOOKUP, idx.getName());
+    }
+    final var REL_LOOKUP = "CREATE LOOKUP INDEX %s FOR ()-[r]-() ON EACH type(r);";
+    if ("RELATIONSHIP".equals(idx.getEntityType())) {
+      return String.format(REL_LOOKUP, idx.getName());
+    }
+    throw new IllegalStateException("Unsupported index entity type: " + idx.getEntityType());
   }
 
   /** Limited support for the Full Text. */
@@ -363,14 +375,28 @@ public class IndexManager {
    */
   public void loadIndexes(List<IndexData> indexes, boolean refresh) {
 
-    // find all the sizes
-    final var sizes =
+    // bucket the FULLTEXT/TEXT/RANGE indexes
+    final var index2Size =
         indexes.parallelStream()
+            // FIXME: If there's multiple labels on FULLTEXT
             .filter(idx -> idx.getLabelsOrTypes().size() == 1)
             .map(this::determineSize)
             .collect(Collectors.toList());
 
     // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
-    BucketBuilder.build(sizes).forEach(b -> create(b, refresh));
+    BucketBuilder.build(index2Size).forEach(b -> create(b, refresh));
+
+    // create any token based indexes
+    indexes.stream()
+        .filter(idx -> LOOKUP.equals(idx.getType()))
+        .forEach(
+            idx -> {
+              if (refresh) {
+                // drop the index if it exists
+                dropIndex(idx);
+              }
+              createIndex(idx);
+              monitorCreation(idx);
+            });
   }
 }

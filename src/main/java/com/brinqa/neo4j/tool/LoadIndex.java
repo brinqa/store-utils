@@ -56,16 +56,10 @@ public class LoadIndex extends AbstractIndexCommand {
   protected File file;
 
   @Option(
-      required = true,
       names = {"-r", "--refresh"},
       description = "Refresh the index by dropping and recreating.",
       defaultValue = "false")
   protected boolean refresh;
-
-  @Option(
-      names = {"-f", "--filter"},
-      description = "Filter indexes that contain any of these properties.")
-  protected List<String> filterProperties;
 
   // this example implements Callable, so parsing, error handling and handling user
   // requests for usage help or version help can be done with one line of code.

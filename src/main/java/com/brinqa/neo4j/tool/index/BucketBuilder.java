@@ -24,6 +24,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
+
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class BucketBuilder {
@@ -36,30 +39,21 @@ public class BucketBuilder {
    * @return stream of buckets partition with S/M/L.
    */
   public static Stream<Bucket> build(List<Pair<IndexData, Long>> pairs) {
-    final Map<Size, ArrayList<IndexData>> map = new HashMap<>();
-    for (Pair<IndexData, Long> pair : pairs) {
-      final var size = toSize(pair.getValue());
-      final var l = map.computeIfAbsent(size, na -> new ArrayList<>());
-      l.add(pair.getKey());
-    }
-
-    // break up into buckets
-    return map.entrySet().stream().flatMap(e -> toBuckets(e.getKey(), e.getValue()));
+    return io.vavr.collection.List.ofAll(pairs)
+        .groupBy(p -> toSize(p.getValue()))
+        .map(t -> Tuple.of(t._1, t._2.map(Pair::getKey)))
+        .toJavaStream()
+        .flatMap(
+            t -> {
+              var sz = t._1;
+              var l = t._2.toJavaList();
+              var batchSize = toBatchSize(sz);
+              return Lists.partition(l, batchSize).stream()
+                  .map(b -> Bucket.builder().size(sz).indexes(b).build());
+            });
   }
 
-  /**
-   * Create a stream of {@link Bucket} by partitioning the list. If the index supports a LARGE then
-   * there can only be 4 indexes in a LARGE bucket.
-   *
-   * @param size bucket size S/M/L
-   * @param values list of indexes
-   * @return stream of buckets partition with S/M/L.
-   */
-  static Stream<Bucket> toBuckets(Bucket.Size size, List<IndexData> values) {
-    return Lists.partition(values, toBatchSize(size)).stream()
-        .map(b -> Bucket.builder().size(size).indexes(values).build());
-  }
-
+  /** Number of indexes of SMALL in a SMALL bucket for instance. */
   static int toBatchSize(Size size) {
     switch (size) {
       case SMALL:
