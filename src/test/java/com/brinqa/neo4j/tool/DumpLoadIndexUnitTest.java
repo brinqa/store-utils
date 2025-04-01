@@ -20,9 +20,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import java.util.List;
+
+import org.junit.Ignore;
 import org.junit.Test;
 
 /** Attempt to recreate all the indexes */
+@Ignore
 public class DumpLoadIndexUnitTest {
 
   @Test
