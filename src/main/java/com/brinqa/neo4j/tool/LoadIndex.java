@@ -1,6 +1,4 @@
 /*
- * Copyright 2002 Brinqa, Inc. All rights reserved.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -18,14 +16,8 @@ package com.brinqa.neo4j.tool;
 import static com.brinqa.neo4j.tool.util.Print.println;
 
 import com.brinqa.neo4j.tool.dto.IndexData;
-import com.brinqa.neo4j.tool.index.BucketBuilder;
 import com.brinqa.neo4j.tool.index.IndexManager;
-import com.google.common.collect.Iterables;
 import java.io.File;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-import org.apache.commons.lang3.tuple.Pair;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;

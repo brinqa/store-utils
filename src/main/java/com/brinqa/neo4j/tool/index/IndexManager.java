@@ -1,6 +1,4 @@
 /*
- * Copyright 2002 Brinqa, Inc. All rights reserved.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,6 +17,7 @@ import static com.brinqa.neo4j.tool.dto.IndexData.Type.LOOKUP;
 import static com.brinqa.neo4j.tool.util.Print.println;
 import static com.brinqa.neo4j.tool.util.Print.progressPercentage;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.util.stream.Collectors.joining;
 import static org.neo4j.driver.internal.types.InternalTypeSystem.TYPE_SYSTEM;
 
@@ -27,16 +26,12 @@ import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.dto.IndexStatus;
 import com.brinqa.neo4j.tool.dto.IndexStatus.State;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.common.collect.Iterables;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
+import com.google.common.collect.MoreCollectors;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
@@ -100,7 +95,7 @@ public class IndexManager {
   public List<IndexData> readIndexesFromFile(File f) {
     final var ret = new ArrayList<IndexData>();
     final var objectMapper = new ObjectMapper();
-    try (final var rdr = new BufferedReader(new FileReader(f))) {
+    try (final var rdr = Files.newBufferedReader(f.toPath())) {
       for (String line = rdr.readLine(); line != null; line = rdr.readLine()) {
         final var index = objectMapper.readValue(line, IndexData.class);
         ret.add(index);
@@ -232,7 +227,7 @@ public class IndexManager {
     }
     // basic name/label
     var name = indexData.getName();
-    var label = getOnlyElement(indexData.getLabelsOrTypes());
+    var label = indexData.getLabelsOrTypes().stream().collect(MoreCollectors.onlyElement());
 
     // create an index
     var IDX_FMT = "CREATE %s INDEX %s IF NOT EXISTS FOR (n:`%s`) ON (%s);";
@@ -264,14 +259,19 @@ public class IndexManager {
   IndexStatus readIndexStatus(TransactionContext tx, String name) {
     final String FMT = "show indexes yield populationPercent,state,name WHERE name = \"%s\"";
     final var result = tx.run(String.format(FMT, name));
-    final var record = Iterables.getFirst(result.list(), null);
-    if (null == record) {
-      log.error("Unable to get index status for {}", name);
-      return IndexStatus.builder().state(State.FAILED).build();
-    }
-    final var pct = record.get("populationPercent").asFloat(0f);
-    final var state = record.get("state").asString("");
-    return IndexStatus.builder().progress(pct).state(toState(state)).build();
+    return result.list().stream()
+        .findFirst()
+        .map(
+            record -> {
+              final var pct = record.get("populationPercent").asFloat(0f);
+              final var state = record.get("state").asString("");
+              return IndexStatus.builder().progress(pct).state(toState(state)).build();
+            })
+        .orElseGet(
+            () -> {
+              log.error("Unable to get index status for {}", name);
+              return IndexStatus.builder().state(State.FAILED).build();
+            });
   }
 
   IndexStatus.State toState(String state) {
@@ -289,7 +289,7 @@ public class IndexManager {
 
   public void writeIndexes(File file, List<IndexData> indexes) {
     final var objectMapper = new ObjectMapper();
-    try (final var wrt = new BufferedWriter(new FileWriter(file))) {
+    try (final var wrt = Files.newBufferedWriter(file.toPath(), TRUNCATE_EXISTING)) {
       for (IndexData index : indexes) {
         final var line = objectMapper.writeValueAsString(index);
         wrt.write(line);
@@ -337,9 +337,7 @@ public class IndexManager {
     return this.readTransaction(
         tx -> {
           final Result result = tx.run(String.format(FMT, labelName));
-          return Optional.ofNullable(Iterables.getFirst(result.list(), null))
-              .map(r -> r.get(0).asLong(0L))
-              .orElse(0L);
+          return result.list().stream().findFirst().map(r -> r.get(0).asLong(0L)).orElse(0L);
         });
   }
 
@@ -359,12 +357,14 @@ public class IndexManager {
   }
 
   Pair<IndexData, Long> determineSize(IndexData idx) {
-    String label = Iterables.getFirst(idx.getLabelsOrTypes(), null);
-    if (null != label) {
-      long size = labelSize(label);
-      return Pair.of(idx, size);
-    }
-    return Pair.of(idx, 0L);
+    return idx.getLabelsOrTypes().stream()
+        .findFirst()
+        .map(
+            label -> {
+              long size = labelSize(label);
+              return Pair.of(idx, size);
+            })
+        .orElse(Pair.of(idx, 0L));
   }
 
   /**

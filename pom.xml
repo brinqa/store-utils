@@ -1,5 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
@@ -14,6 +14,18 @@
     <packaging>jar</packaging>
 
     <name>store-utils</name>
+    <description>Neo4j Tools for managing indexes.</description>
+
+    <licenses>
+        <license>
+            <name>The Apache Software License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+            <comments>Note that this license is for the project itself,
+                and not for its dependencies. See the included NOTICE.txt
+                file for further details.</comments>
+        </license>
+    </licenses>
 
     <properties>
         <revision>5.0.x-SNAPSHOT</revision>
@@ -24,58 +36,35 @@
 
         <air.java.version>17</air.java.version>
         <project.build.targetJdk>17</project.build.targetJdk>
-    </properties>
 
-    <licenses>
-        <license>
-            <name>The Apache Software License, Version 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
-            <comments>
-                Note that this license is for the project itself,
-                and not for its dependencies. See the included NOTICE.txt
-                file for further details.
-            </comments>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
+        <!-- skip basic checks -->
+        <air.check.skip-basic>true</air.check.skip-basic>
+
+        <!-- checks -->
+        <air.check.skip-jacoco>false</air.check.skip-jacoco>
+        <air.check.skip-spotbugs>false</air.check.skip-spotbugs>
+        <air.check.skip-modernizer>false</air.check.skip-modernizer>
+
+        <!-- skip extended checks -->
+        <air.check.skip-pmd>true</air.check.skip-pmd>
+        <air.check.skip-license>true</air.check.skip-license>
+        <air.check.skip-checkstyle>true</air.check.skip-checkstyle>
+
+        <!-- fail extended checks -->
+        <air.check.skip-jacoco>false</air.check.skip-jacoco>
+        <air.check.fail-spotbugs>false</air.check.fail-spotbugs>
+        <air.check.fail-modernizer>false</air.check.fail-modernizer>
+
+        <!-- javadoc lint -->
+        <air.javadoc.lint>-missing</air.javadoc.lint>
+
+        <lombok.version>1.18.36</lombok.version>
+    </properties>
     <dependencies>
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>3.17.0</version>
-        </dependency>
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-            <version>33.4.6-jre</version>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.18.36</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>4.13.2</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.neo4j.driver</groupId>
-            <artifactId>neo4j-java-driver</artifactId>
-            <version>5.28.4</version>
-        </dependency>
-        <dependency>
-            <groupId>info.picocli</groupId>
-            <artifactId>picocli</artifactId>
-            <version>4.7.6</version>
-        </dependency>
-        <!-- https://mvnrepository.com/artifact/it.unimi.dsi/fastutil -->
-        <dependency>
-            <groupId>it.unimi.dsi</groupId>
-            <artifactId>fastutil</artifactId>
-            <version>8.5.13</version>
+            <groupId>com.esotericsoftware</groupId>
+            <artifactId>kryo</artifactId>
+            <version>5.6.0</version>
         </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
@@ -88,9 +77,14 @@
             <version>2.18.0</version>
         </dependency>
         <dependency>
-            <groupId>io.vavr</groupId>
-            <artifactId>vavr</artifactId>
-            <version>0.10.6</version>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>33.4.6-jre</version>
+        </dependency>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+            <version>4.7.6</version>
         </dependency>
         <dependency>
             <groupId>io.reactivex.rxjava3</groupId>
@@ -98,14 +92,35 @@
             <version>3.1.10</version>
         </dependency>
         <dependency>
+            <groupId>io.vavr</groupId>
+            <artifactId>vavr</artifactId>
+            <version>0.10.6</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/it.unimi.dsi/fastutil -->
+        <dependency>
+            <groupId>it.unimi.dsi</groupId>
+            <artifactId>fastutil</artifactId>
+            <version>8.5.13</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.27.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.17.0</version>
+        </dependency>
+        <dependency>
             <groupId>org.neo4j</groupId>
             <artifactId>neo4j-cypher-dsl</artifactId>
             <version>2024.5.1</version>
         </dependency>
         <dependency>
-            <groupId>com.esotericsoftware</groupId>
-            <artifactId>kryo</artifactId>
-            <version>5.6.0</version>
+            <groupId>org.neo4j.driver</groupId>
+            <artifactId>neo4j-java-driver</artifactId>
+            <version>5.28.4</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
@@ -113,9 +128,28 @@
             <version>2.0.12</version>
         </dependency>
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-compress</artifactId>
-            <version>1.27.1</version>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <version>5.12.1</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-runner</artifactId>
+            <version>1.12.1</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
@@ -124,12 +158,27 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+    <repositories>
+        <repository>
+            <id>maven_central</id>
+            <name>Maven Central</name>
+            <url>https://repo.maven.apache.org/maven2/</url>
+        </repository>
+    </repositories>
     <build>
         <plugins>
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
                 <version>${spotless.version}</version>
+                <configuration>
+                    <!-- define a language-specific format -->
+                    <java>
+                        <importOrder />
+                        <removeUnusedImports />
+                        <googleJavaFormat />
+                    </java>
+                </configuration>
                 <executions>
                     <execution>
                         <goals>
@@ -138,28 +187,11 @@
                         <phase>compile</phase>
                     </execution>
                 </executions>
-                <configuration>
-                    <!-- define a language-specific format -->
-                    <java>
-                        <importOrder/>
-                        <removeUnusedImports/>
-                        <googleJavaFormat/>
-                    </java>
-                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>appassembler-maven-plugin</artifactId>
                 <version>1.10</version>
-                <executions>
-                    <execution>
-                        <id>assemble-standalone-unix</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>assemble</goal>
-                        </goals>
-                    </execution>
-                </executions>
                 <configuration>
                     <programs>
                         <program>
@@ -179,6 +211,15 @@
                         <maxMemorySize>8g</maxMemorySize>
                     </defaultJvmSettings>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>assemble-standalone-unix</id>
+                        <goals>
+                            <goal>assemble</goal>
+                        </goals>
+                        <phase>package</phase>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -194,50 +235,48 @@
                 <executions>
                     <execution>
                         <id>make-distribution</id>
-                        <phase>package</phase>
                         <goals>
                             <goal>single</goal>
+                        </goals>
+                        <phase>package</phase>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <groupId>com.github.ekryd.sortpom</groupId>
+                <artifactId>sortpom-maven-plugin</artifactId>
+                <version>3.4.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>sort</goal>
                         </goals>
                     </execution>
                 </executions>
             </plugin>
-<!--            <plugin>-->
-<!--                <groupId>org.apache.maven.plugins</groupId>-->
-<!--                <artifactId>maven-compiler-plugin</artifactId>-->
-<!--                <version>3.14.0</version>-->
-<!--                <configuration>-->
-<!--                    <source>17</source>-->
-<!--                    <target>17</target>-->
-<!--                    <compilerArgument>-Xlint:all</compilerArgument>-->
-<!--                    <showWarnings>true</showWarnings>-->
-<!--                    <showDeprecation>false</showDeprecation>-->
-<!--                </configuration>-->
-<!--            </plugin>-->
             <plugin>
-                <groupId>com.mycila</groupId>
-                <artifactId>license-maven-plugin</artifactId>
-                <version>4.1</version>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
                 <configuration>
-                    <licenseSets>
-                        <licenseSet>
-                            <header>license_header.txt</header>
-                            <excludes>
-                                <exclude>pom.xml</exclude>
-                                <exclude>LICENSE.txt</exclude>
-                                <exclude>src/test/resources/**</exclude>
-                                <exclude>src/main/resources/**</exclude>
-                            </excludes>
-                        </licenseSet>
-                    </licenseSets>
+                    <source>${project.build.targetJdk}</source>
+                    <release>${project.build.targetJdk}</release>
+                    <encoding>${project.build.sourceEncoding}</encoding>
+                    <fork>${air.compiler.fork}</fork>
+                    <maxmem>${air.build.jvmsize}</maxmem>
+                    <failOnWarning>${air.compiler.fail-warnings}</failOnWarning>
+                    <showDeprecation>true</showDeprecation>
+                    <showWarnings>true</showWarnings>
+                    <parameters>true</parameters>
+                    <enablePreview>${air.compiler.enable-preview}</enablePreview>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
                 </configuration>
             </plugin>
         </plugins>
     </build>
-    <repositories>
-        <repository>
-            <id>maven_central</id>
-            <name>Maven Central</name>
-            <url>https://repo.maven.apache.org/maven2/</url>
-        </repository>
-    </repositories>
 </project>

@@ -1,6 +1,4 @@
 /*
- * Copyright 2025 Brinqa, Inc. All rights reserved.
- *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -19,14 +17,9 @@ import com.brinqa.neo4j.tool.dto.Bucket;
 import com.brinqa.neo4j.tool.dto.Bucket.Size;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.google.common.collect.Lists;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
-
 import io.vavr.Tuple;
-import io.vavr.Tuple2;
+import java.util.List;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class BucketBuilder {
