@@ -15,6 +15,7 @@ package com.brinqa.neo4j.tool;
 
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.index.IndexManager;
+import com.brinqa.neo4j.tool.util.Neo4jHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
 import org.junit.AfterClass;

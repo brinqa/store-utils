@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.brinqa.neo4j.tool;
+package com.brinqa.neo4j.tool.util;
 
 import static com.brinqa.neo4j.tool.util.Print.println;
 

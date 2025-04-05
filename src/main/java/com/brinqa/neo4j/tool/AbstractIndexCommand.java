@@ -13,17 +13,13 @@
  */
 package com.brinqa.neo4j.tool;
 
-import static com.brinqa.neo4j.tool.Neo4jHelper.buildDriver;
+import static com.brinqa.neo4j.tool.util.Neo4jHelper.buildDriver;
 
 import com.brinqa.neo4j.tool.index.IndexManager;
 import java.io.IOException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import picocli.CommandLine.Option;
 
 abstract class AbstractIndexCommand implements Runnable {
-
-  private static final Logger LOG = LoggerFactory.getLogger(AbstractIndexCommand.class);
 
   @Option(
       names = {"-n", "--no_auth"},

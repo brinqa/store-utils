@@ -142,7 +142,7 @@ public class IndexManager {
   }
 
   public void monitorCreation(final IndexData index) {
-    println("Monitoring: %s", index.getName());
+
     // wait for completion
     int pct = 0;
     IndexStatus status = null;
@@ -343,6 +343,8 @@ public class IndexManager {
   /** Create all the indexes in one transaction for the bucket. */
   void create(final Bucket bucket, final boolean recreate) {
     // send all the commands
+    final var indexCount = bucket.getIndexes().size();
+    println("Creating %d indexes for bucket size: %s", indexCount, bucket.getSize());
     for (IndexData index : bucket.getIndexes()) {
       if (recreate) {
         // drop the index if it exists
@@ -352,7 +354,11 @@ public class IndexManager {
       createIndex(index);
     }
     // monitor the indexes
-    bucket.getIndexes().forEach(this::monitorCreation);
+    for (int i = 1; i <= bucket.getIndexes().size(); i++) {
+      final var idxData = bucket.getIndexes().get(i);
+      println("Monitoring: %s, %d of %d", idxData.getName(), i, indexCount);
+      monitorCreation(idxData);
+    }
   }
 
   Pair<IndexData, Long> determineSize(IndexData idx) {
@@ -380,7 +386,7 @@ public class IndexManager {
             // FIXME: If there's multiple labels on FULLTEXT
             .filter(idx -> idx.getLabelsOrTypes().size() == 1)
             .map(this::determineSize)
-            .collect(Collectors.toList());
+            .toList();
 
     // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
     BucketBuilder.build(index2Size).forEach(b -> create(b, refresh));
@@ -395,6 +401,7 @@ public class IndexManager {
                 dropIndex(idx);
               }
               createIndex(idx);
+              println("Monitoring: %s", idx.getName());
               monitorCreation(idx);
             });
   }

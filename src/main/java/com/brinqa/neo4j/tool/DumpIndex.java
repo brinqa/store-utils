@@ -57,7 +57,7 @@ public class DumpIndex extends AbstractIndexCommand {
     final List<IndexData> indexes = indexManager.readIndexes();
     println("Building index file: %s", this.file);
     final List<IndexData> sortedIndexes =
-        indexes.stream().sorted(new IndexDataComparator()).collect(Collectors.toList());
+        indexes.stream().sorted(new IndexDataComparator()).toList();
     indexManager.writeIndexes(this.file, sortedIndexes);
   }
 }
