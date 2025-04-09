@@ -20,7 +20,6 @@ import com.brinqa.neo4j.tool.dto.IndexDataComparator;
 import com.brinqa.neo4j.tool.index.IndexManager;
 import java.io.File;
 import java.util.List;
-import java.util.stream.Collectors;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
