@@ -4,7 +4,7 @@ on:
   push:
     branches: [ "5.x" ]
     tags:
-      - "v*.*.*"
+      - "v5.*.*"
 
 jobs:
   build:
