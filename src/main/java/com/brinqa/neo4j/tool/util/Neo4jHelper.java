@@ -15,11 +15,15 @@ package com.brinqa.neo4j.tool.util;
 
 import static com.brinqa.neo4j.tool.util.Print.println;
 
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.neo4j.driver.AuthTokens;
 import org.neo4j.driver.Config;
 import org.neo4j.driver.Driver;
 import org.neo4j.driver.GraphDatabase;
+import org.neo4j.driver.Session;
 import org.neo4j.driver.exceptions.ServiceUnavailableException;
 
 @Slf4j
@@ -43,5 +47,18 @@ public final class Neo4jHelper {
       }
     }
     throw new IllegalStateException("Unable to connect to Neo4J: " + uri);
+  }
+
+  public static Set<String> readAllLabels(Driver driver) {
+    try (Session session = driver.session()) {
+      return session.executeRead(
+          tx -> {
+            var result = tx.run("CALL db.labels() YIELD label RETURN label");
+            return result.list().stream()
+                .map(record -> record.get("label").asString(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+          });
+    }
   }
 }

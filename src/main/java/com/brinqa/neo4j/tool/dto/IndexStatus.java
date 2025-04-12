@@ -14,6 +14,7 @@
 package com.brinqa.neo4j.tool.dto;
 
 import lombok.Builder;
+import lombok.NonNull;
 import lombok.Value;
 
 @Value
@@ -35,6 +36,6 @@ public class IndexStatus {
     }
   }
 
-  State state;
+  @NonNull State state;
   float progress;
 }

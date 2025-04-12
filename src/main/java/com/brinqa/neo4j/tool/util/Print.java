@@ -15,11 +15,11 @@ package com.brinqa.neo4j.tool.util;
 
 public class Print {
 
-  public static void println(String fmt, Object... args) {
+  public static synchronized void println(String fmt, Object... args) {
     System.out.printf(fmt + "%n", args);
   }
 
-  public static void printf(String fmt, Object... args) {
+  public static synchronized void printf(String fmt, Object... args) {
     System.out.printf(fmt, args);
   }
 
@@ -33,7 +33,7 @@ public class Print {
     }
   }
 
-  public static void progressPercentage(long count, long total) {
+  public static synchronized void progressPercentage(long count, long total) {
     int remain = (int) ((100 * count) / total);
     progressPercentageBar(remain);
     printf(" (%d/%d)", count, total);
@@ -42,7 +42,7 @@ public class Print {
     }
   }
 
-  static void progressPercentageBar(int remain) {
+  static synchronized void progressPercentageBar(int remain) {
     int maxBareSize = 100; // 100 unit for 100%
     char defaultChar = '-';
     String icon = "*";

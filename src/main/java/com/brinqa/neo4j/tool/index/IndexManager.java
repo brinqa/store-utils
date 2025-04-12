@@ -28,12 +28,15 @@ import com.brinqa.neo4j.tool.dto.IndexStatus;
 import com.brinqa.neo4j.tool.dto.IndexStatus.State;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.MoreCollectors;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -155,7 +158,9 @@ public class IndexManager {
       }
       pct = (int) status.getProgress();
       progressPercentage(pct);
-      simpleWait(100);
+      if (pct != 100) {
+        simpleWait(1000);
+      }
     }
     if (status.getState().isOk()) {
       return;
@@ -185,16 +190,11 @@ public class IndexManager {
   }
 
   public String createIndexQueryQuery(IndexData idx) {
-    switch (idx.getType()) {
-      case RANGE:
-      case TEXT:
-        return buildIndexQuery(idx);
-      case FULLTEXT:
-        return buildFullTextIndexQuery(idx);
-      case LOOKUP:
-        return buildLookupQuery(idx);
-    }
-    throw new IllegalStateException("Unsupported index type: " + idx.getType());
+    return switch (idx.getType()) {
+      case RANGE, TEXT -> buildIndexQuery(idx);
+      case FULLTEXT -> buildFullTextIndexQuery(idx);
+      case LOOKUP -> buildLookupQuery(idx);
+    };
   }
 
   private String buildLookupQuery(IndexData idx) {
@@ -341,10 +341,26 @@ public class IndexManager {
   }
 
   /** Create all the indexes in one transaction for the bucket. */
-  void create(final Bucket bucket, final boolean recreate) {
+  void create(final Bucket bucket, final boolean recreate, int current, int total) {
     // send all the commands
     final var indexCount = bucket.getIndexes().size();
     println("Creating %d indexes for bucket size: %s", indexCount, bucket.getSize());
+    Flowable.fromIterable(bucket.getIndexes())
+        .parallel(8)
+        .runOn(Schedulers.io())
+        .map(
+            index -> {
+              if (recreate) {
+                // drop the index if it exists
+                dropIndex(index);
+              }
+              // create the index if it does not exist
+              createIndex(index);
+              return index;
+            })
+        .sequential()
+        .ignoreElements()
+        .blockingSubscribe();
     for (IndexData index : bucket.getIndexes()) {
       if (recreate) {
         // drop the index if it exists
@@ -354,9 +370,10 @@ public class IndexManager {
       createIndex(index);
     }
     // monitor the indexes
-    for (int i = 1; i <= bucket.getIndexes().size(); i++) {
+    for (int i = 0; i < bucket.getIndexes().size(); i++) {
+      final var idxCount = current + i + 1;
       final var idxData = bucket.getIndexes().get(i);
-      println("Monitoring: %s, %d of %d", idxData.getName(), i, indexCount);
+      println("Monitoring: %s, %d of %d", idxData.getName(), idxCount, total);
       monitorCreation(idxData);
     }
   }
@@ -389,7 +406,13 @@ public class IndexManager {
             .toList();
 
     // buckets sizes <1k (100 per), <10k (10 per), <100k (2 per), >100k (1 per)
-    BucketBuilder.build(index2Size).forEach(b -> create(b, refresh));
+    AtomicInteger currentCount = new AtomicInteger(0);
+    BucketBuilder.build(index2Size)
+        .forEach(
+            b -> {
+              create(b, refresh, currentCount.get(), indexes.size());
+              currentCount.addAndGet(b.getIndexes().size());
+            });
 
     // create any token based indexes
     indexes.stream()
