@@ -48,15 +48,20 @@ public class BucketBuilder {
 
   /** Number of indexes of SMALL in a SMALL bucket for instance. */
   static int toBatchSize(Size size) {
-    switch (size) {
-      case SMALL:
-        return 200;
-      case MEDIUM:
-        return 50;
-      case LARGE:
-        return 4;
-    }
-    throw new IllegalArgumentException("Unsupported batch size: " + size);
+    return switch (size) {
+      case SMALL -> 1000;
+      case MEDIUM -> 100;
+      case LARGE -> largeBatchSize();
+    };
+  }
+
+  /**
+   * Number of indexes in a LARGE bucket. This is the number of processors divided by 4. This avoids
+   * over powering the system in general.
+   */
+  static int largeBatchSize() {
+    int ret = Runtime.getRuntime().availableProcessors() / 4;
+    return Math.max(ret, 4);
   }
 
   static Size toSize(long total) {
