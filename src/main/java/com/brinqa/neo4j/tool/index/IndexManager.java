@@ -275,17 +275,14 @@ public class IndexManager {
             });
   }
 
-  IndexStatus.State toState(String state) {
-    if (state.equalsIgnoreCase("FAILED")) {
-      return State.FAILED;
-    }
-    if (state.equalsIgnoreCase("ONLINE")) {
-      return State.ONLINE;
-    }
-    if (state.equalsIgnoreCase("POPULATING")) {
-      return State.POPULATING;
-    }
-    return State.OTHER;
+  State toState(String state) {
+    return switch (state.toUpperCase()) {
+      case "ONLINE" -> State.ONLINE;
+      case "FAILED" -> State.FAILED;
+      case "POPULATING" -> State.POPULATING;
+
+      default -> State.OTHER;
+    };
   }
 
   public void writeIndexes(File file, List<IndexData> indexes) {
