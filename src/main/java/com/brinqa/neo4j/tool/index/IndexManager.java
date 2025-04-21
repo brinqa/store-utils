@@ -411,18 +411,6 @@ public class IndexManager {
               currentCount.addAndGet(b.getIndexes().size());
             });
 
-    // create any token based indexes
-    indexes.stream()
-        .filter(idx -> LOOKUP.equals(idx.getType()))
-        .forEach(
-            idx -> {
-              if (refresh) {
-                // drop the index if it exists
-                dropIndex(idx);
-              }
-              createIndex(idx);
-              println("Monitoring: %s", idx.getName());
-              monitorCreation(idx);
-            });
+    // SKIP IndexType.LOOKUP as Neo4j will create it automatically
   }
 }
