@@ -2,15 +2,10 @@ package com.brinqa.neo4j.tool;
 
 import static java.lang.String.format;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
-import static org.neo4j.io.pagecache.impl.muninn.StandalonePageCacheFactory.createPageCache;
-import static org.neo4j.kernel.impl.scheduler.JobSchedulerFactory.createInitialisedScheduler;
 
 import java.io.File;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Optional;
-
 import org.neo4j.cli.AbstractAdminCommand;
 import org.neo4j.cli.CommandFailedException;
 import org.neo4j.cli.ExecutionContext;
@@ -25,11 +20,9 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.graphdb.facade.ExternalDependencies;
 import org.neo4j.internal.helpers.collection.Iterables;
-import org.neo4j.internal.recordstorage.RecordStorageEngine;
 import org.neo4j.io.fs.FileSystemAbstraction;
 import org.neo4j.io.layout.DatabaseLayout;
 import org.neo4j.io.layout.Neo4jLayout;
-import org.neo4j.io.pagecache.tracing.PageCacheTracer;
 import org.neo4j.kernel.impl.util.Validators;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.storageengine.api.StorageEngineFactory;
@@ -82,7 +75,7 @@ public class DefragmentData extends AbstractAdminCommand {
 
       // copy relationships
       int totalRelationships = copyRelationships(database, targetDb);
-        System.out.println("Total relationships: " + totalRelationships);
+      System.out.println("Total relationships: " + totalRelationships);
 
     } catch (Exception e) {
       throw new CommandFailedException(
