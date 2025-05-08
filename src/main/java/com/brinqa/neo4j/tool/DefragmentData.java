@@ -1,14 +1,17 @@
 package com.brinqa.neo4j.tool;
 
 import static java.lang.String.format;
+import static org.apache.commons.lang3.StringUtils.isBlank;
 import static org.neo4j.configuration.GraphDatabaseSettings.DEFAULT_DATABASE_NAME;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Optional;
 import org.neo4j.cli.AbstractAdminCommand;
 import org.neo4j.cli.CommandFailedException;
 import org.neo4j.cli.ExecutionContext;
+import org.neo4j.cli.ExitCode;
 import org.neo4j.configuration.Config;
 import org.neo4j.configuration.GraphDatabaseInternalSettings;
 import org.neo4j.configuration.GraphDatabaseSettings;
@@ -27,15 +30,18 @@ import org.neo4j.kernel.impl.util.Validators;
 import org.neo4j.kernel.internal.GraphDatabaseAPI;
 import org.neo4j.storageengine.api.StorageEngineFactory;
 import picocli.CommandLine;
+import picocli.CommandLine.Command;
 import reactor.core.publisher.Flux;
 
 /** CLI to defragment data in Neo4j database, copying from a source directory to a target one. */
-@CommandLine.Command(
+@Command(
     name = "defragment",
     version = "defragment 1.0",
     description =
         "Defragments data in Neo4j database, copying from a source directory to a target one.")
 public class DefragmentData extends AbstractAdminCommand {
+  private static final String ENV_NEO4J_HOME = "NEO4J_HOME";
+  private static final String ENV_NEO4J_CONF = "NEO4J_CONF";
 
   /** Target directory to copy the data to. */
   @CommandLine.Option(
@@ -49,9 +55,25 @@ public class DefragmentData extends AbstractAdminCommand {
   // use the default
   private final StorageEngineFactory.Selector storageEngineSelector = StorageEngineFactory.SELECTOR;
 
+  public DefragmentData() {
+    this(buildExecutionContext());
+  }
+
+  static ExecutionContext buildExecutionContext() {
+    final var homeDir = getHomeDir();
+    return new ExecutionContext(homeDir, getConfDir(homeDir));
+  }
+
   /** Initialize the environment based on the given context. */
   public DefragmentData(ExecutionContext ctx) {
     super(ctx);
+  }
+
+  // this example implements Callable, so parsing, error handling and handling user
+  // requests for usage help or version help can be done with one line of code.
+  public static void main(String... args) {
+    int exitCode = new CommandLine(new DefragmentData()).execute(args);
+    System.exit(exitCode);
   }
 
   /** Execute the command to defragment the data. */
@@ -178,6 +200,41 @@ public class DefragmentData extends AbstractAdminCommand {
               "The directory %s contains the store files of a single database."
                   + " --from-path should point to the databases directory.",
               databasesPath));
+    }
+  }
+
+  private static Path getHomeDir() {
+    var value = System.getenv(ENV_NEO4J_HOME);
+    if (isBlank(value)) {
+      System.err.printf("Required environment variable '%s' is not set%n", ENV_NEO4J_HOME);
+      System.exit(ExitCode.USAGE);
+    }
+    var path = Path.of(value).toAbsolutePath();
+    checkExistsAndIsDirectory(path, true, ENV_NEO4J_HOME);
+    return path;
+  }
+
+  private static Path getConfDir(Path homeDir) {
+    var value = System.getenv(ENV_NEO4J_CONF);
+    var isExplicitlySet = !isBlank(value);
+    var path = isExplicitlySet ? Path.of(value).toAbsolutePath() : homeDir.resolve("conf");
+    if (isExplicitlySet) {
+      checkExistsAndIsDirectory(path, false, ENV_NEO4J_CONF);
+    }
+    return path;
+  }
+
+  private static void checkExistsAndIsDirectory(Path path, boolean mustExist, String envVariable) {
+    if (!mustExist && !Files.exists(path)) {
+      // This directory doesn't need to exist, and it doesn't so don't check any further.
+      // This explicit check is done because the below check would yield false for a non-existent
+      // path.
+      return;
+    }
+
+    if (!Files.isDirectory(path)) {
+      System.err.printf("%s path doesn't exist or not a directory: %s%n", envVariable, path);
+      System.exit(ExitCode.USAGE);
     }
   }
 }
