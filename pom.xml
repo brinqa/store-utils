@@ -10,8 +10,8 @@
     <name>store-utils</name>
 
     <properties>
-        <revision>4.4.41.x-SNAPSHOT</revision>
-        <neo4j.version>4.4.41</neo4j.version>
+        <revision>4.4.45.x-SNAPSHOT</revision>
+        <neo4j.version>4.4.45</neo4j.version>
         <neo4j.driver.version>4.4.11</neo4j.driver.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
