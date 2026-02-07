@@ -1,7 +1,5 @@
 package org.neo4j.tool;
 
-import it.unimi.dsi.fastutil.longs.Long2LongMap;
-import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
 import lombok.RequiredArgsConstructor;
 import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.RelationshipType;
@@ -56,8 +54,12 @@ public class StoreCopy {
 
         final Map<String, String> targetConfig = MapUtil.stringMap("dbms.pagecache.memory", pageCacheSize);
         BatchInserter targetDb = BatchInserters.inserter(target, targetConfig);
-        Long2LongMap copiedNodeIds = copyNodes(sourceDb, targetDb, highestIds.first(), flusher);
-        copyRelationships(sourceDb, targetDb, copiedNodeIds, highestIds.other(), flusher);
+        RocksDBIdMap copiedNodeIds = copyNodes(sourceDb, targetDb, highestIds.first(), flusher);
+        try {
+            copyRelationships(sourceDb, targetDb, copiedNodeIds, highestIds.other(), flusher);
+        } finally {
+            copiedNodeIds.close();
+        }
         System.out.println("Stopping target database");
         targetDb.shutdown();
         System.out.println("Stopped target database");
@@ -94,7 +96,7 @@ public class StoreCopy {
 
     private void copyRelationships(final BatchInserter sourceDb,
                                    final BatchInserter targetDb,
-                                   final Long2LongMap copiedNodeIds,
+                                   final RocksDBIdMap copiedNodeIds,
                                    final long highestRelId,
                                    final Flusher flusher) {
         long time = System.currentTimeMillis();
@@ -137,12 +139,12 @@ public class StoreCopy {
         return (int) (100 * part.floatValue() / total.floatValue());
     }
 
-    private Long2LongMap copyNodes(BatchInserter sourceDb,
-                                  BatchInserter targetDb,
-                                  long highestNodeId,
-                                  Flusher flusher) {
+    private RocksDBIdMap copyNodes(BatchInserter sourceDb,
+                                   BatchInserter targetDb,
+                                   long highestNodeId,
+                                   Flusher flusher) throws Exception {
 
-        Long2LongMap copiedNodes = new Long2LongOpenHashMap(10_000_000);
+        RocksDBIdMap copiedNodes = new RocksDBIdMap(target.getParentFile());
         long time = System.currentTimeMillis();
         long node = 0;
         long notFound = 0;
@@ -191,7 +193,7 @@ public class StoreCopy {
     private boolean createRelationship(BatchInserter targetDb,
                                        BatchInserter sourceDb,
                                        BatchRelationship rel,
-                                       Long2LongMap copiedNodeIds) {
+                                       RocksDBIdMap copiedNodeIds) {
 
         long startNodeId = rel.getStartNode(), endNodeId = rel.getEndNode();
         if (copiedNodeIds != null) {
