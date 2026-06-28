@@ -202,6 +202,14 @@
                             <name>load</name>
                             <mainClass>com.brinqa.neo4j.tool.LoadIndex</mainClass>
                         </program>
+                        <program>
+                            <name>dumpData</name>
+                            <mainClass>com.brinqa.neo4j.tool.DumpData</mainClass>
+                        </program>
+                        <program>
+                            <name>loadData</name>
+                            <mainClass>com.brinqa.neo4j.tool.LoadData</mainClass>
+                        </program>
                     </programs>
                     <repositoryLayout>flat</repositoryLayout>
                     <repositoryName>lib</repositoryName>

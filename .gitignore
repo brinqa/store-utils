@@ -8,3 +8,10 @@ target
 .shell_history
 *.json
 *.jsonl
+# CocoIndex Code (ccc)
+/.cocoindex_code/
+# Eclipse / m2e
+.classpath
+.project
+.factorypath
+.settings/

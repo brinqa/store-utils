@@ -11,37 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.brinqa.neo4j.tool.dto;
+package com.brinqa.neo4j.tool.data;
 
 import java.util.List;
 import java.util.Map;
-import lombok.Builder;
-import lombok.Value;
-import lombok.extern.jackson.Jacksonized;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Value
-@Jacksonized
-@Builder(toBuilder = true)
-public class IndexData {
-  public enum Type {
-    RANGE,
-    FULLTEXT,
-    TEXT,
-    POINT,
-    VECTOR,
-    LOOKUP
-  }
-
-  long id;
-  String name;
-  String state;
-  float populationPercent;
-  Type type;
-  String entityType;
-  List<String> labelsOrTypes;
-  List<String> properties;
-  String indexProvider;
-  String owningConstraint;
-  Map<String, Object> options;
-  long readCount;
+/**
+ * A single exported node. {@code key} is the export-local identity (the source element id, only
+ * meaningful within one export) used to wire up relationships on import. {@code props} are stored
+ * in normalized form (see {@link PropertyCodec}).
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class NodeRecord {
+  private String key;
+  private List<String> labels;
+  private Map<String, Object> props;
 }

@@ -11,37 +11,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.brinqa.neo4j.tool.dto;
+package com.brinqa.neo4j.tool.data;
 
-import java.util.List;
 import java.util.Map;
-import lombok.Builder;
-import lombok.Value;
-import lombok.extern.jackson.Jacksonized;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Value
-@Jacksonized
-@Builder(toBuilder = true)
-public class IndexData {
-  public enum Type {
-    RANGE,
-    FULLTEXT,
-    TEXT,
-    POINT,
-    VECTOR,
-    LOOKUP
-  }
-
-  long id;
-  String name;
-  String state;
-  float populationPercent;
-  Type type;
-  String entityType;
-  List<String> labelsOrTypes;
-  List<String> properties;
-  String indexProvider;
-  String owningConstraint;
-  Map<String, Object> options;
-  long readCount;
+/**
+ * A single exported relationship. {@code src}/{@code dst} are export-local node keys (source
+ * element ids) and the direction is always src -&gt; dst. {@code props} are stored in normalized
+ * form (see {@link PropertyCodec}).
+ */
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
+public class RelRecord {
+  private String src;
+  private String dst;
+  private String type;
+  private Map<String, Object> props;
 }

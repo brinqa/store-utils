@@ -26,14 +26,14 @@ import com.brinqa.neo4j.tool.dto.Bucket;
 import com.brinqa.neo4j.tool.dto.IndexData;
 import com.brinqa.neo4j.tool.dto.IndexStatus;
 import com.brinqa.neo4j.tool.dto.IndexStatus.State;
+import com.brinqa.neo4j.tool.util.CypherNames;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.MoreCollectors;
-import io.reactivex.rxjava3.core.Flowable;
-import io.reactivex.rxjava3.schedulers.Schedulers;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -71,6 +71,8 @@ public class IndexManager {
         .properties(toList(record.get("properties")))
         .indexProvider(safeToString(record.get("indexProvider")))
         .owningConstraint(safeToString(record.get("owningConstraint")))
+        .options(
+            record.containsKey("options") ? toMap(record.get("options")) : new LinkedHashMap<>())
         .readCount(record.get("readCount").asLong(0))
         .build();
   }
@@ -94,6 +96,14 @@ public class IndexManager {
       return List.of(safeToString(value));
     }
     return value.asList(IndexManager::safeToString);
+  }
+
+  @SuppressWarnings("unchecked")
+  static LinkedHashMap<String, Object> toMap(Value value) {
+    if (value == null || value.isNull() || value.isEmpty()) {
+      return new LinkedHashMap<>();
+    }
+    return new LinkedHashMap<>((java.util.Map<String, Object>) value.asObject());
   }
 
   public List<IndexData> readIndexesFromFile(File f) {
@@ -191,35 +201,41 @@ public class IndexManager {
 
   public String createIndexQueryQuery(IndexData idx) {
     return switch (idx.getType()) {
-      case RANGE, TEXT -> buildIndexQuery(idx);
+      case RANGE, TEXT, POINT -> buildIndexQuery(idx);
+      case VECTOR -> buildVectorIndexQuery(idx);
       case FULLTEXT -> buildFullTextIndexQuery(idx);
       case LOOKUP -> buildLookupQuery(idx);
     };
   }
 
   private String buildLookupQuery(IndexData idx) {
+    final var name = CypherNames.quote(idx.getName());
     final var NODE_LOOKUP = "CREATE LOOKUP INDEX %s IF NOT EXISTS FOR (n) ON EACH labels(n);";
     if ("NODE".equals(idx.getEntityType())) {
-      return String.format(NODE_LOOKUP, idx.getName());
+      return String.format(NODE_LOOKUP, name);
     }
-    final var REL_LOOKUP = "CREATE LOOKUP INDEX %s FOR ()-[r]-() ON EACH type(r);";
+    final var REL_LOOKUP = "CREATE LOOKUP INDEX %s IF NOT EXISTS FOR ()-[r]-() ON EACH type(r);";
     if ("RELATIONSHIP".equals(idx.getEntityType())) {
-      return String.format(REL_LOOKUP, idx.getName());
+      return String.format(REL_LOOKUP, name);
     }
     throw new IllegalStateException("Unsupported index entity type: " + idx.getEntityType());
   }
 
-  /** Limited support for the Full Text. */
+  /** Full text indexes, for nodes or relationships. */
   String buildFullTextIndexQuery(IndexData indexData) {
-
-    var name = indexData.getName();
-    var label = indexData.getLabelsOrTypes().stream().map(l -> "`" + l + "`").collect(joining("|"));
-
-    // create an index
-    var fmt = "CREATE FULLTEXT INDEX %s IF NOT EXISTS FOR (n:%s) ON EACH [%s];";
+    final var name = CypherNames.quote(indexData.getName());
+    // a fulltext index may span multiple labels/types: :`A`|`B`
+    final var tokens =
+        indexData.getLabelsOrTypes().stream().map(CypherNames::quote).collect(joining("|"));
+    final var rel = "RELATIONSHIP".equals(indexData.getEntityType());
+    final var entity = rel ? "()-[n:" + tokens + "]-()" : "(n:" + tokens + ")";
     // make sure to quote all the properties of an index
-    var properties = indexData.getProperties().stream().map(p -> "n." + p).collect(joining(","));
-    return String.format(fmt, name, label, properties);
+    final var properties =
+        indexData.getProperties().stream()
+            .map(p -> "n." + CypherNames.quote(p))
+            .collect(joining(","));
+    final var fmt = "CREATE FULLTEXT INDEX %s IF NOT EXISTS FOR %s ON EACH [%s]%s;";
+    return String.format(fmt, name, entity, properties, options(indexData));
   }
 
   String buildIndexQuery(IndexData indexData) {
@@ -227,25 +243,95 @@ public class IndexManager {
       return buildConstraintQuery(indexData);
     }
     // basic name/label
-    var name = indexData.getName();
-    var label = indexData.getLabelsOrTypes().stream().collect(MoreCollectors.onlyElement());
+    var name = CypherNames.quote(indexData.getName());
+    var label =
+        CypherNames.quote(
+            indexData.getLabelsOrTypes().stream().collect(MoreCollectors.onlyElement()));
+    final var rel = "RELATIONSHIP".equals(indexData.getEntityType());
+    final var entity = rel ? "()-[n:" + label + "]-()" : "(n:" + label + ")";
 
     // create an index
-    var IDX_FMT = "CREATE %s INDEX %s IF NOT EXISTS FOR (n:`%s`) ON (%s);";
+    var IDX_FMT = "CREATE %s INDEX %s IF NOT EXISTS FOR %s ON (%s)%s;";
     // make sure to quote all the properties of an index
     var properties =
-        indexData.getProperties().stream().map(p -> "n.`" + p + "`").collect(joining(","));
-    return String.format(IDX_FMT, indexData.getType(), name, label, properties);
+        indexData.getProperties().stream()
+            .map(p -> "n." + CypherNames.quote(p))
+            .collect(joining(","));
+    return String.format(
+        IDX_FMT, indexData.getType(), name, entity, properties, options(indexData));
+  }
+
+  String buildVectorIndexQuery(IndexData indexData) {
+    if (indexData.getOwningConstraint() != null) {
+      throw new IllegalStateException(
+          "VECTOR indexes cannot own constraints: " + indexData.getName());
+    }
+    final var name = CypherNames.quote(indexData.getName());
+    final var label =
+        CypherNames.quote(
+            indexData.getLabelsOrTypes().stream().collect(MoreCollectors.onlyElement()));
+    final var rel = "RELATIONSHIP".equals(indexData.getEntityType());
+    final var entity = rel ? "()-[n:" + label + "]-()" : "(n:" + label + ")";
+    if (indexData.getProperties() == null || indexData.getProperties().isEmpty()) {
+      throw new IllegalStateException("VECTOR index has no property: " + indexData.getName());
+    }
+    final var vectorProperty = "n." + CypherNames.quote(indexData.getProperties().get(0));
+    final var filterProperties =
+        indexData.getProperties().stream()
+            .skip(1)
+            .map(p -> "n." + CypherNames.quote(p))
+            .collect(joining(","));
+    final var filters = filterProperties.isEmpty() ? "" : " WITH [" + filterProperties + "]";
+    return String.format(
+        "CREATE VECTOR INDEX %s IF NOT EXISTS FOR %s ON (%s)%s%s;",
+        name, entity, vectorProperty, filters, options(indexData));
+  }
+
+  private static String options(IndexData indexData) {
+    final var options = indexData.getOptions();
+    if (options == null || options.isEmpty()) {
+      return "";
+    }
+    return " OPTIONS " + cypherLiteral(options);
+  }
+
+  private static String cypherLiteral(Object value) {
+    if (value == null) {
+      return "null";
+    }
+    if (value instanceof String s) {
+      return "'" + s.replace("\\", "\\\\").replace("'", "\\'") + "'";
+    }
+    if (value instanceof Number || value instanceof Boolean) {
+      return String.valueOf(value);
+    }
+    if (value instanceof List<?> list) {
+      return "[" + list.stream().map(IndexManager::cypherLiteral).collect(joining(",")) + "]";
+    }
+    if (value instanceof java.util.Map<?, ?> map) {
+      return "{"
+          + map.entrySet().stream()
+              .map(
+                  e ->
+                      CypherNames.quote(String.valueOf(e.getKey()))
+                          + ": "
+                          + cypherLiteral(e.getValue()))
+              .collect(joining(","))
+          + "}";
+    }
+    throw new IllegalArgumentException("Unsupported index option value: " + value.getClass());
   }
 
   String buildConstraintQuery(IndexData indexData) {
-    var name = indexData.getName();
-    var labels = getOnlyElement(indexData.getLabelsOrTypes());
+    var name = CypherNames.quote(indexData.getName());
+    var labels = CypherNames.quote(getOnlyElement(indexData.getLabelsOrTypes()));
 
     // create constraint
-    var format = "CREATE CONSTRAINT `%s` IF NOT EXISTS FOR (n:`%s`) REQUIRE (%s) IS UNIQUE;";
+    var format = "CREATE CONSTRAINT %s IF NOT EXISTS FOR (n:%s) REQUIRE (%s) IS UNIQUE;";
     var properties =
-        indexData.getProperties().stream().map(p -> "n.`" + p + "`").collect(joining(","));
+        indexData.getProperties().stream()
+            .map(p -> "n." + CypherNames.quote(p))
+            .collect(joining(","));
     return String.format(format, name, labels, properties);
   }
 
@@ -337,27 +423,13 @@ public class IndexManager {
         });
   }
 
-  /** Create all the indexes in one transaction for the bucket. */
+  /** Create all the indexes for the bucket, then wait for each to come online. */
   void create(final Bucket bucket, final boolean recreate, int current, int total) {
     // send all the commands
     final var indexCount = bucket.getIndexes().size();
     println("Creating %d indexes for bucket size: %s", indexCount, bucket.getSize());
-    Flowable.fromIterable(bucket.getIndexes())
-        .parallel(8)
-        .runOn(Schedulers.io())
-        .map(
-            index -> {
-              if (recreate) {
-                // drop the index if it exists
-                dropIndex(index);
-              }
-              // create the index if it does not exist
-              createIndex(index);
-              return index;
-            })
-        .sequential()
-        .ignoreElements()
-        .blockingSubscribe();
+    // Create sequentially: the README documents that creating too many indexes at once can OOM or
+    // corrupt Neo4j, so each index is created (after an optional drop) before the next.
     for (IndexData index : bucket.getIndexes()) {
       if (recreate) {
         // drop the index if it exists

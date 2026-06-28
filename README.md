@@ -1,112 +1,164 @@
-# Store-Utils Neo4j Database Compaction and Index Maintenance
+# Store-Utils: Neo4j 5 Export / Import & Index Maintenance
 
-This project was inspired by the work of Michael Hunger in the *store-utils* and so its a fork, mostly a rewrite of that effort.  It's also a continuation 
-for the 4.x community edition.
+This project was inspired by Michael Hunger's *store-utils* and is a continuation of the 4.x
+community effort. The 4.x line copied the database at the storage-file level. Neo4j 5 changed those
+internals and no longer offers a practical offline compaction path for this use case, so the 5.x
+line rebuilds a database the supported way: it **exports the graph through the Neo4j Java Driver and
+Cypher, then recreates it into a clean database.**
 
-## Use Cases:
+## Use Cases
 
-The use cases form around either compaction/optimization for a long-running database or optimization after a large deletion. Neo4j will attempt to recover 
-space, but often it's just better to de-fragment or compact the database to restore it to optimal performance. There's also the question of corruption, this 
-tool attempts to filter the corrupted nodes and relationships. It won't be able to repair the database but in general it will get to a working state. After 
-any compact the indexes must be rebuilt. The commands here help facilitate that, since at times the process can be cumbersome. For instance in production, 
-there have been times when Neo4j gets overwhelmed trying to re-create the indexes and since they're done in a transaction, the creation can get reverts. 
-Basically this results in an infinite loop of creation, crash, creation, crash, so on and so on. 
+Compaction/optimization of a long-running database, or recovery after a large deletion. Neo4j will
+try to reclaim space on its own, but rebuilding into a fresh database reliably defragments the store
+and restores performance. Rebuilding also drops orphaned/corrupt artifacts that a live database
+keeps dragging along.
 
 Examples:
-* Overrun of data that was deleted and now the database is abnormally large.
-* Large deletion required to clean the database of no longer used data.
+* A burst of data was deleted and the store is now abnormally large.
+* A large clean-up of no-longer-used data is required.
 
-NOTE: 
-It's generally better to label nodes to be deleted and the use this tool to do the actual deletion in a maintenance window. For large scale deletions, for 
-those that well over 10 million nodes.
+## How It Works
 
-## Overview
+The rebuild is four steps, exposed as CLI commands:
 
-There are basically 4 parts to the optimization process.
+1. `dumpData` – stream all nodes, relationships and the schema (indexes/constraints) out of the
+   source database into a local **staging directory**.
+2. Reset / provision a clean, empty target database.
+3. `loadData` – recreate the nodes and relationships in the target, then recreate the indexes and
+   constraints.
+4. (Indexes only, if you prefer to manage them separately: `dump` / `load`.)
 
-* Determine the existing indexes in the data
-* Optimize the data, copy source to target filtering out nodes to delete
-* Add the users to the new copy of the database
-* Rebuilding the indexes in the target copy
+### Staging Layout
 
+`dumpData` writes a self-describing directory:
 
-## Preparation
+```text
+<dump-dir>/
+  manifest.json          # tool/server version, timestamps, counts, batch size, format version
+  indexes.jsonl          # index & constraint definitions (same format as `dump`)
+  nodes/<label-set>.kryo  # length-prefixed, Kryo-serialized node records, one file per label set
+  relationships/<type>.kryo  # length-prefixed, Kryo-serialized relationship records, one per type
+```
 
-* There must be sufficient space to copy the database to a target directory. The target must be at least the same size as the source, just in case there's no 
-optimization to be done.
-* The current usernames and passwords must be available in order to create them after the copy.
-* There must a sufficient window of time to do the copy as it can be quite long in relationship to the size of the database.
+Records are streamed to disk (one file per label-set / relationship-type) and read back one at a
+time, so memory stays bounded regardless of graph size. Property values are normalized to plain
+JDK/driver types before serialization (temporal, duration and point values are tagged so they keep
+their Neo4j type on import).
 
+### Identity
 
-## Procedure
+Application-level identity is preserved by re-creating every node with all of its original labels
+and properties. To wire relationships back to the correct endpoints, each node is imported with a
+**temporary** `__import_id` property (carrying the source element id, which is only meaningful within
+a single export) and a temporary `__Imported` label backed by a temporary uniqueness constraint. After
+relationships are created these temporary keys are removed (use `--keep-import-keys` to retain them
+for debugging or resume). The manifest records whether an indexed application `id` property was
+found; the import key approach is used uniformly so nodes without an `id` are handled too.
 
-### Step 1.
-Download the store-util distribution for the particular Neo4j version. The version of Neo4j is prefixed The 4.4.x releases handle Neo4j 4.4 and 4.3, 
-respectively. There will be a 3.5.x release that will handle all Neo4j 3.5.x releases. **_Note_** though during the copy the Neo4j storage will be upgraded to the 
-version that `store-utils` was built with.
+## Prerequisites
 
-### Step 2.
-Extract the distribution to a local directory.
+* Java 17.
+* A running source Neo4j 5 database and a **separate, empty** target Neo4j 5 database (Community
+  edition only exposes the `neo4j` and `system` databases, so the target is usually a second
+  instance, or the same instance after it has been wiped).
+* Enough local disk for the staging directory (roughly proportional to the data size).
+* Credentials for both databases.
 
-### Step 3.
+## Commands
 
-Dump the index and constraint definitions to a file. Neo4j must be running.
+All commands authenticate with these environment variables (or the matching flags):
 
-    $ ./bin/dump
+```text
+NEO4J_URL        # default bolt://localhost:7687
+NEO4J_USERNAME
+NEO4J_PASSWORD
+```
 
-This command will authenticate to Neo4j and write all the index definitions to dump.json.  Each CLI command comes with help by convention of -h or --help.
+Flags: `-a/--url`, `-u/--username`, `-p/--password`, `-n/--no_auth`. Every command supports
+`-h/--help`.
 
-Included with the dump command is the ability to change the index provider based on the attribute name. Given the type of data in the Brinqa database its better to have certain attributes use the Lucene index rather than BTree. Below is a common example but if there’s other low cardinally attributes they should be added here.
+### 1. Export the source database
 
-    $ ./bin/dump -l __dataModel__ 
+```bash
+$ ./bin/dumpData --output /data/dump
+```
 
-NOTE: This command will use the local environment variables to authenticate to Neo4j. 
+Writes `manifest.json`, `indexes.jsonl`, `nodes/` and `relationships/` into `/data/dump`. By default
+the node scan and relationship scan run as two concurrent read streams; use `--serial-export` to run
+them one after the other. Tune the streaming/fetch batch with `-b/--batch` (default 10000). A crashed
+dump leaves the manifest marked `IN_PROGRESS`; `loadData` refuses to load anything that is not
+`COMPLETE`, so partial dumps can never be mistaken for good ones.
 
-    NEO4J_URL
-    NEO4J_USERNAME
-    NEO4J_PASSWORD
+### 2. Reset the target database
 
+The target must be **empty**. For Community, stop the instance, remove/replace the database, and
+start a fresh one (or `MATCH (n) DETACH DELETE n` plus dropping constraints/indexes on a scratch
+instance). Importing into a non-empty database will create duplicates.
 
-### Step 4.
-Run the optimization process such that it rebuilds the database in another directory.
+### 3. Import into the target
 
-    $ ./bin/storeCopy /data/neo4j /data/neo4j-optimized
+Point the connection at the **target** and run:
 
-This process can take several hours to process proportional to the size of the database and the percentage of fragmented space.
+```bash
+$ NEO4J_URL=bolt://target:7687 ./bin/loadData --input /data/dump
+```
 
-### Step 5.
+This imports nodes, then relationships, removes the temporary import keys, and finally recreates the
+indexes/constraints from `indexes.jsonl`. Options:
 
-Replace the old source directory with the new target directory applied above. Then start the database and monitor for issues. Optional run 
+* `-b/--batch` – `UNWIND CREATE` batch size (default 10000).
+* `-p/--parallelism` – number of staged node/relationship partitions to import concurrently.
+* `--skip-indexes` – import data only; recreate indexes later with `load`.
+* `--keep-import-keys` – leave the `__import_id`/`__Imported` scaffolding in place.
 
-    $ neo4j-admin consistency-check 
+## Index / Constraint Only Workflow
 
-to see if the database is proper.
+If you only need to dump and restore the schema (for example, after recovering a store some other
+way), use the original index commands. The file is newline-delimited JSON; you can delete a line to
+skip that index/constraint.
 
-### Step 6.
+Dump the definitions (Neo4j must be running):
 
-Recreate the users see https://neo4j.com/docs/cypher-manual/current/access-control/manage-users/
+```bash
+$ ./bin/dump            # writes dump.jsonl
+```
 
-### Step 7.
+Restore them in a controlled manner (each index is created and brought online before the next, to
+avoid overwhelming Neo4j):
 
-Rebuilding the indexes, the tool can use the dump.json file created in the Step 3. to recreate the indexes.
+```bash
+$ ./bin/load -f dump.jsonl
+```
 
-    $ ./bin/load -f dump.json
+`load` skips indexes/constraints that already exist by name. Use `-r/--refresh` to drop and recreate
+(see Known Issues — use sparingly). `-d/--dryrun` prints the generated Cypher without executing it.
 
-This process can take a few hours to complete based on the size of the data.
+## Failure Recovery
 
-NOTE: This command will use the local environment variables to authenticate to Neo4j.
+* **Dump interrupted** – rerun `dumpData` (it overwrites the staging directory). The manifest stays
+  `IN_PROGRESS` until the dump finishes successfully.
+* **Load interrupted before relationships finish** – the target is partial. Wipe it and rerun
+  `loadData`. The staging directory is unchanged and reusable.
+* **Index creation flaky** – rerun with `load` (it skips already-online indexes), or create the
+  problematic index manually and remove its line from `indexes.jsonl`.
 
+## Limitations
 
-## Tips:
+* Map-valued properties and `byte[]` are not native Neo4j node property types; only Neo4j-supported
+  property values (strings, booleans, integers, floats, their arrays, temporal/duration/point) are
+  exercised end-to-end.
+* The export is a single streamed scan per entity and is **not** resumable mid-stream; on failure
+  rerun the dump. Keyset pagination would make it resumable and is the natural upgrade path.
+* The convenience `copyData` (run export+import in one shot against two connections) is intentionally
+  not implemented — run `dumpData` then `loadData`. It is a small addition if dual-connection
+  ergonomics are wanted later.
+* Relationship-scoped indexes/constraints and multi-label full-text indexes are not generated by the
+  index machinery (node indexes, single-label full-text, and uniqueness constraints are).
 
-The file created by dump is new line delimited JSON or JSON object per line file. This means that if there's an index or constraint that needs to be 
-filtered the line in which it exists can just be removed.
+## Known Issues
 
-## Known Issues:
-
-* Setting the `load` command to `recreate` each index can fail unexpectedly. Neo4j can randomly fail if there's a drop/create of an index or constraint. The 
-  solution is to manually delete the and create the index. The `recreate` should be used sparingly. And filter all the lines in the dump file up to that 
-  point and start again.
-* Neo4j can at times see a unique index, but it won't show on `SHOW CONTRAINTS` even it was created as a constraint. The workaround is to drop the index 
-  and create the constraint again manually with the same name so `load` can skip it.
-* No support for full-text index.
+* `load -r/--refresh` (drop + recreate) can fail intermittently — Neo4j may randomly fail a
+  drop/create of an index/constraint. Prefer the default skip-if-exists behavior and recreate
+  problem indexes manually.
+* Neo4j can occasionally show a unique index that does not appear under `SHOW CONSTRAINTS`. Drop the
+  index and recreate the constraint manually with the same name so `load` can skip it.

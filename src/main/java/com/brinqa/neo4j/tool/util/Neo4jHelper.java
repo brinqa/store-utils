@@ -61,4 +61,34 @@ public final class Neo4jHelper {
           });
     }
   }
+
+  public static Set<String> readAllRelationshipTypes(Driver driver) {
+    try (Session session = driver.session()) {
+      return session.executeRead(
+          tx -> {
+            var result =
+                tx.run(
+                    "CALL db.relationshipTypes() YIELD relationshipType RETURN relationshipType");
+            return result.list().stream()
+                .map(record -> record.get("relationshipType").asString(null))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
+          });
+    }
+  }
+
+  /** Best-effort Neo4j server version for the manifest; empty if it cannot be read. */
+  public static String serverVersion(Driver driver) {
+    try (Session session = driver.session()) {
+      return session.executeRead(
+          tx -> {
+            var result =
+                tx.run("CALL dbms.components() YIELD versions RETURN versions[0] AS version");
+            return result.hasNext() ? result.next().get("version").asString("") : "";
+          });
+    } catch (RuntimeException ex) {
+      log.warn("Unable to read server version: {}", ex.getMessage());
+      return "";
+    }
+  }
 }
